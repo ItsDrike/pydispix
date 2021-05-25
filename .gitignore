@@ -1,5 +1,38 @@
+# Byte-compiled / optimized / DLL Files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyPi release files
 build
 dist
 dpypx.egg-info
-__pycache__
-**/*~
+
+# Virtual Envornments
+.venv
+venv/
+env/
+ENV/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Editor project settings
+## VSCode
+.vscode/
+## PyCharm intellij
+.idea/
+## repl.it
+.replit
+## Spyder
+.spyproject/
+.spyderproject/
+
+# Custom attributes for folders on Mac OS
+.DS_Store
+
+# Backup files
+*.bak
+
+# Personal TODO files
+TODO
