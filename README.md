@@ -1,4 +1,4 @@
-# DPYPX
+# PyDisPix
 
 A simple wrapper around [Python Discord Pixels](https://pixels.pythondiscord.com).
 
@@ -9,13 +9,13 @@ Requires `pillow` and `aiohttp` from pip.
 ## Example
 
 ```python
-import dpypx
+import pydispix
 
 # Create a client with your token.
-client = dpypx.Client('my-auth-token')
+client = pydispix.Client('my-auth-token')
 
 # You can also set a save file to store ratelimit data between reboots.
-client = dpypx.Client('my-auth-token', ratelimit_save_file='ratelimits.json')
+client = pydispix.Client('my-auth-token', ratelimit_save_file='ratelimits.json')
 
 # Download and save the canvas.
 canvas = await client.get_canvas()
@@ -29,7 +29,7 @@ print(await client.get_pixel(4, 10))
 
 # Draw a pixel.
 await client.put_pixel(50, 10, 'cyan')
-await client.put_pixel(1, 5, dpypx.Colour.BLURPLE)
+await client.put_pixel(1, 5, pydispix.Colour.BLURPLE)
 await client.put_pixel(100, 4, '93FF00')
 await client.put_pixel(44, 0, 0xFF0000)
 
@@ -45,14 +45,14 @@ Load an image:
 from PIL import Image
 
 im = Image.open('pretty.png')
-ad = dpypx.AutoDraw.load_image(client, (5, 40), im, scale=0.1)
+ad = pydispix.AutoDraw.load_image(client, (5, 40), im, scale=0.1)
 await ad.draw()
 ```
 
 Or specify each pixel:
 
 ```python
-ad = dpypx.AutoDraw.load(client, '''0
+ad = pydispix.AutoDraw.load(client, '''0
 0
 3
 2
@@ -86,11 +86,13 @@ logging.basicConfig(level=logging.INFO)
 ```
 
 Too see more logs:
+
 ```python
 logging.basicConfig(level=logging.DEBUG)
 ```
 
 To see fewer logs:
+
 ```python
 logging.basicConfig(level=logging.WARNING)
 ```
