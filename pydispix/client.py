@@ -1,107 +1,90 @@
-"""HTTP client to the pixel API."""
+import os
+import requests
 import logging
+from collections import namedtuple
 from typing import Union, Optional
 
-import aiohttp
+from pydispix.ratelimits import RateLimiter
+from pydispix.canvas import Canvas, Pixel
+from pydispix.color import Color, parse_color
 
-from .canvas import Canvas, Pixel
-from .colours import Colour, parse_colour
-from .ratelimits import RateLimiter
-
-
-logger = logging.getLogger('dpypx')
+logger = logging.getLogger('pydispix')
+Dimensions = namedtuple('Dimensions', ('width', 'height'))
 
 
 class Client:
     """HTTP client to the pixel API."""
+    def __init__(self, token: Optional[str] = None, base_url="https://pixels.pythondiscord.com"):
+        if token is None:
+            try:
+                token = os.environ['TOKEN']
+            except KeyError:
+                raise RuntimeError("Unable to load token, 'TOKEN' environmental variable not found.")
 
-    def __init__(
-            self,
-            token: str,
-            base_url: str = 'https://pixels.pythondiscord.com/',
-            *,
-            ratelimit_save_file: Optional[str] = None):
-        """Store the token and set up the client."""
+        self.token = token
         self.base_url = base_url
         self.headers = {
-            'Authorization': 'Bearer ' + token,
-            'User-Agent': 'Artemis dpypx (Python/aiohttp)'
+            "Authorization": "Bearer " + token,
+            "User-Agent": "ItsDrike pydispix",
         }
-        self.client = None
-        # Cache canvas size, assuming it won't change.
-        self.canvas_size = None
-        self.ratelimits = RateLimiter(ratelimit_save_file)
+        self.rate_limiter = RateLimiter()
+        self.width, self.height = self.size = self.get_dimensions()
 
-    async def get_client(self) -> aiohttp.ClientSession:
-        """Get or create the client session."""
-        if (not self.client) or self.client.closed:
-            self.client = aiohttp.ClientSession(headers=self.headers)
-        return self.client
+    def make_request(
+        self,
+        method: str,
+        endpoint_url: str,
+        *,
+        data: Optional[dict] = None,
+        params: Optional[dict] = None,
+        parse_json: bool = True,
+        ratelimit_after: bool = False
+    ) -> Union[bytes, dict]:
+        if not endpoint_url.startswith("/"):
+            endpoint_url = "/" + endpoint_url
 
-    async def request(
-            self,
-            method: str,
-            endpoint: str,
-            *,
-            data: Optional[dict] = None,
-            params: Optional[dict] = None,
-            parse_json: bool = True,
-            ratelimit_after: bool = False) -> aiohttp.ClientResponse:
-        """Make a call to an endpoint, respecting ratelimiting."""
-        logger.debug(
-            f'Request: {method} {endpoint} data={data!r} params={params!r}.'
-        )
-        client = await self.get_client()
-        while True:
-            if not ratelimit_after:
-                await self.ratelimits.pause(endpoint)
-            request = client.request(
-                method, self.base_url + endpoint, json=data, params=params
-            )
-            async with request as response:
-                self.ratelimits.update(endpoint, response.headers)
-                if ratelimit_after:
-                    await self.ratelimits.pause(endpoint)
-                if response.status == 429:
-                    continue
-                if parse_json:
-                    return await response.json()
-                else:
-                    return await response.read()
+        if not ratelimit_after:
+            self.rate_limiter.wait(endpoint_url)
 
-    async def put_pixel(
-            self, x: int, y: int, colour: Union[int, str, Colour]) -> str:
+        logger.debug(f'Request: {method} {endpoint_url} data={data!r} params={params!r}.')
+
+        response = requests.request(method, self.base_url + endpoint_url, json=data, headers=self.headers, params=params)
+        self.rate_limiter.update_from_headers(endpoint_url, response.headers)
+        if ratelimit_after:
+            self.rate_limiter.wait(endpoint_url)
+
+        if parse_json:
+            return response.json()
+        else:
+            return response.content
+
+    def get_dimensions(self) -> Dimensions:
+        data = self.make_request("GET", "get_size")
+        return Dimensions(width=data["width"], height=data["height"])
+
+    def get_canvas(self) -> Canvas:
+        data = self.make_request("GET", "get_pixels", parse_json=False)
+        return Canvas(self.size, data)
+
+    def get_pixel(self, x: int, y: int) -> Pixel:
+        data = self.make_request("GET", "get_pixel", params={"x": x, "y": y})
+        hex_color = data["rgb"]
+        return Pixel.from_hex(hex_color)
+
+    def put_pixel(self, x: int, y: int, color: Union[int, str, Color]) -> str:
         """Draw a pixel and return a message."""
         # Wait for ratelimits *after* making request, not before. This makes
         # sense because we don't know how the canvas may have changed by the
         # time we have finished waiting, whereas for GET endpoints, we want to
         # return the information as soon as it is given.
-        data = await self.request('POST', 'set_pixel', data={
-            'x': x,
-            'y': y,
-            'rgb': parse_colour(colour)
-        }, ratelimit_after=True)
+        data = self.make_request(
+            'POST', 'set_pixel',
+            data={
+                'x': x,
+                'y': y,
+                'rgb': parse_color(color)
+            },
+            ratelimit_after=True
+        )
         logger.info('Success: {message}'.format(**data))
         return data['message']
-
-    async def get_canvas_size(self) -> tuple[int, int]:
-        """Get the size of the canvas (with caching)."""
-        if self.canvas_size:
-            return self.canvas_size
-        data = await self.request('GET', 'get_size')
-        return data['width'], data['height']
-
-    async def get_canvas(self) -> Canvas:
-        """Request the entire canvas."""
-        data = await self.request('GET', 'get_pixels', parse_json=False)
-        size = await self.get_canvas_size()
-        return Canvas(size, data)
-
-    async def get_pixel(self, x: int, y: int) -> Pixel:
-        """Get a specific pixel of the canvas."""
-        data = await self.request('GET', 'get_pixel', params={'x': x, 'y': y})
-        return Pixel.from_hex(data['rgb'])
-
-    async def close(self):
-        """Close the underlying session."""
-        await self.client.close()

@@ -1,14 +1,12 @@
-"""Utilities for accepting colour input."""
 import enum
 import re
 from typing import Union
 
-from .canvas import Pixel
+from pydispix.canvas import Pixel
 
 
-class Colour(enum.Enum):
+class Color(enum.Enum):
     """A set of common colour codes."""
-
     BLACK = '000000'
     RED = 'FF0000'
     GREEN = '00FF00'
@@ -26,9 +24,8 @@ class Colour(enum.Enum):
     DISCORD_BLACK = '23272A'
 
 
-def parse_colour(value: Union[int, str, Colour]) -> str:
+def parse_color(value: Union[int, str, Color]) -> str:
     """Parse a colour to a hex string.
-
     Accepts integers, strings and instances of the Colour enum.
     """
     if isinstance(value, int):
@@ -46,3 +43,7 @@ def parse_colour(value: Union[int, str, Colour]) -> str:
         # Remove leading "#".
         return str(value)[1:]
     raise ValueError(f'Invalid colour "{value}".')
+
+
+Colour = Color
+parse_colour = parse_color

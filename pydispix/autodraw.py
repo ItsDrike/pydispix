@@ -1,29 +1,48 @@
 """Tool for automatically drawing images."""
-from __future__ import annotations
-
 import logging
 
-from PIL import Image
+import PIL.Image
 
-from .canvas import Pixel
-from .client import Client
+from pydispix.canvas import Pixel
+from pydispix.client import Client
 
 
-logger = logging.getLogger('dpypx')
+logger = logging.getLogger('pydispix')
 
 
 class AutoDrawer:
     """Tool for automatically drawing images."""
 
+    def __init__(
+        self,
+        client: Client,
+        x: int, y: int,
+        grid: list[list[Pixel]]
+    ):
+        """Store the plan."""
+        self.client = client
+        self.grid = grid
+        # Top left coords.
+        self.x0 = x
+        self.y0 = y
+        # Bottom right coords.
+        self.x1 = x + len(self.grid[0])
+        self.y1 = y + len(self.grid)
+
     @classmethod
     def load_image(
-            cls, client: Client, xy: tuple[int, int],
-            image: Image.Image, scale: float = 1) -> AutoDrawer:
+        cls,
+        client: Client,
+        xy: tuple[int, int],
+        image: PIL.Image.Image,
+        scale: float = 1
+    ) -> 'AutoDrawer':
         """Draw from the pixels of an image."""
         if image.mode == 'RGBA':
-            new_image = Image.new('RGB', image.size)
+            new_image = PIL.Image.new('RGB', image.size)
             new_image.paste(image, mask=image)
             image = new_image
+
         width = round(image.width * scale)
         height = round(image.height * scale)
         data = list(image.resize((width, height)).getdata())
@@ -34,9 +53,8 @@ class AutoDrawer:
         return cls(client, *xy, grid)
 
     @classmethod
-    def load(cls, client: Client, data: str) -> AutoDrawer:
+    def load(cls, client: Client, data: str) -> 'AutoDrawer':
         """Draw from a string that specifies the pixels.
-
         `data` should be a multi-line string. The first two lines are the x
         and y coordinates of the top left of the image to draw. The second two
         are the width and height of the image. The rest of the lines are the
@@ -56,21 +74,9 @@ class AutoDrawer:
             grid.append(row)
         return cls(client, x, y, grid)
 
-    def __init__(
-            self, client: Client, x: int, y: int, grid: list[list[Pixel]]):
-        """Store the plan."""
-        self.client = client
-        self.grid = grid
-        # Top left coords.
-        self.x0 = x
-        self.y0 = y
-        # Bottom right coords.
-        self.x1 = x + len(self.grid[0])
-        self.y1 = y + len(self.grid)
-
-    async def draw(self):
+    def draw(self):
         """Draw the pixels of the image."""
-        canvas = await self.client.get_canvas()
+        canvas = self.client.get_canvas()
         for x in range(self.x0, self.x1):
             for y in range(self.y0, self.y1):
                 dx = x - self.x0
@@ -81,5 +87,5 @@ class AutoDrawer:
                         f'Skipping already correct pixel at {x}, {y}.'
                     )
                     continue
-                await self.client.put_pixel(x, y, colour)
-                canvas = await self.client.get_canvas()
+                self.client.put_pixel(x, y, colour)
+                canvas = self.client.get_canvas()
