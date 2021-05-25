@@ -3,10 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# PyPi release files
-build
-dist
-dpypx.egg-info
+# Ignore PyPi packaging files
+*.egg-info/
+dist/
+build/
 
 # Virtual Envornments
 .venv
