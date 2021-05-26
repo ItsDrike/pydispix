@@ -99,6 +99,18 @@ Guard delay is the delay between each full iteration of all pixels. We need to w
 looping without any changes is almost instant in python, and we don't want to put cpu through that
 stress for no reason
 
+## Progress bars
+
+Every request that has rate limits can now display a progress bar while it's sleeping on cooldown:
+
+```py
+pixel = client.get_pixel(0, 0, show_progress=True)
+canvas = client.get_canvas(show_progress=True)
+client.put_pixel(52, 10, "FFFFFF", show_progress=True)
+```
+
+![Peek mp4](https://user-images.githubusercontent.com/20902250/119607092-418e4200-bde3-11eb-9ac5-4e455ffd47c2.mp4)
+
 ## Logging
 
 To see logs, you can set the `DEBUG` environment variable, which changes the loglevel from `logging.INFO` to `logging.DEBUG`

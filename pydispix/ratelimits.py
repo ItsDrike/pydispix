@@ -1,3 +1,4 @@
+import sys
 import time
 import logging
 from collections import defaultdict
@@ -36,19 +37,36 @@ class RateLimitedEndpoint:
 
         return self.default_delay
 
-    def wait(self):
+    def sleep(self, seconds: int, *, show_progress: bool = False):
+        if not show_progress:
+            return time.sleep(seconds)
+
+        toolbar_width = 40
+
+        # Setup toolbar
+        sys.stdout.write(f"[{' ' * toolbar_width}]")
+        sys.stdout.flush()
+        sys.stdout.write("\b" * (toolbar_width + 1))  # return to start of line, after '['
+
+        for i in range(toolbar_width):
+            time.sleep(seconds / toolbar_width)
+            sys.stdout.write("#")
+            sys.stdout.flush()
+        sys.stdout.write("]\n")  # this ends the progress bar
+
+    def wait(self, *, show_progress: bool = False):
         if not self.rate_limited:
-            logger.debug("Sleeping default delay, not rate limited.")
-            return time.sleep(self.default_delay)
+            logger.debug(f"Sleeping default delay ({self.default_delay}), not rate limited.")
+            return self.sleep(self.default_delay, show_progress=show_progress)
         if self.cooldown_time != 0:
             logger.warning(f"Sleeping {self.cooldown_time}s, on cooldown.")
-            return time.sleep(self.cooldown_time)
+            return self.sleep(self.cooldown_time, show_progress=show_progress)
         if self.remaining_requests == 0:
             logger.warning(f"Sleeping {self.reset_time}s, on reset.")
-            return time.sleep(self.reset_time)
+            return self.sleep(self.reset_time, show_progress=show_progress)
 
         logger.debug(f"Sleeping default delay, {self.remaining_requests} requests remaining.")
-        return time.sleep(self.default_delay)
+        return self.sleep(self.default_delay, show_progress=show_progress)
 
 
 class RateLimiter:
@@ -59,6 +77,6 @@ class RateLimiter:
         limiter = self.rate_limits[endpoint]
         limiter.update_from_headers(headers)
 
-    def wait(self, endpoint: str):
+    def wait(self, endpoint: str, show_progress: bool = False):
         limiter = self.rate_limits[endpoint]
-        limiter.wait()
+        limiter.wait(show_progress=show_progress)

@@ -38,20 +38,21 @@ class Client:
         data: Optional[dict] = None,
         params: Optional[dict] = None,
         parse_json: bool = True,
-        ratelimit_after: bool = False
+        ratelimit_after: bool = False,
+        show_progress: bool = False,
     ) -> Union[bytes, dict]:
         if not endpoint_url.startswith("/"):
             endpoint_url = "/" + endpoint_url
 
         if not ratelimit_after:
-            self.rate_limiter.wait(endpoint_url)
+            self.rate_limiter.wait(endpoint_url, show_progress=show_progress)
 
         logger.debug(f'Request: {method} {endpoint_url} data={data!r} params={params!r}.')
 
         response = requests.request(method, self.base_url + endpoint_url, json=data, headers=self.headers, params=params)
         self.rate_limiter.update_from_headers(endpoint_url, response.headers)
         if ratelimit_after:
-            self.rate_limiter.wait(endpoint_url)
+            self.rate_limiter.wait(endpoint_url, show_progress=show_progress)
 
         if parse_json:
             return response.json()
@@ -62,16 +63,21 @@ class Client:
         data = self.make_request("GET", "get_size")
         return Dimensions(width=data["width"], height=data["height"])
 
-    def get_canvas(self) -> Canvas:
-        data = self.make_request("GET", "get_pixels", parse_json=False)
+    def get_canvas(self, show_progress: bool = False) -> Canvas:
+        data = self.make_request("GET", "get_pixels", parse_json=False, show_progress=show_progress)
         return Canvas(self.size, data)
 
-    def get_pixel(self, x: int, y: int) -> Pixel:
-        data = self.make_request("GET", "get_pixel", params={"x": x, "y": y})
+    def get_pixel(self, x: int, y: int, show_progress: bool = False) -> Pixel:
+        data = self.make_request("GET", "get_pixel", params={"x": x, "y": y}, show_progress=show_progress)
         hex_color = data["rgb"]
         return Pixel.from_hex(hex_color)
 
-    def put_pixel(self, x: int, y: int, color: Union[int, str, tuple[int, int, int], Color]) -> str:
+    def put_pixel(
+        self,
+        x: int, y: int,
+        color: Union[int, str, tuple[int, int, int], Color],
+        show_progress: bool = False,
+    ) -> str:
         """Draw a pixel and return a message."""
         # Wait for ratelimits *after* making request, not before. This makes
         # sense because we don't know how the canvas may have changed by the
@@ -84,7 +90,8 @@ class Client:
                 'y': y,
                 'rgb': parse_color(color)
             },
-            ratelimit_after=True
+            ratelimit_after=True,
+            show_progress=show_progress
         )
         logger.info('Success: {message}'.format(**data))
         return data['message']
