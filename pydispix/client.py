@@ -1,12 +1,14 @@
-import os
-import requests
 import logging
+import os
 from collections import namedtuple
-from typing import Union, Optional
+from typing import Optional, Union
 
-from pydispix.ratelimits import RateLimiter, RateLimitBreached
+import requests
+
 from pydispix.canvas import Canvas, Pixel
 from pydispix.color import Color, parse_color
+from pydispix.ratelimits import RateLimitBreached, RateLimiter
+from pydispix.utils import synchronize
 
 logger = logging.getLogger('pydispix')
 Dimensions = namedtuple('Dimensions', ('width', 'height'))
@@ -30,7 +32,7 @@ class Client:
         self.rate_limiter = RateLimiter()
         self.width, self.height = self.size = self.get_dimensions()
 
-    def make_request(
+    async def async_make_request(
         self,
         method: str,
         endpoint_url: str,
@@ -41,18 +43,19 @@ class Client:
         ratelimit_after: bool = False,
         show_progress: bool = False,
     ) -> Union[bytes, dict]:
+
         if not endpoint_url.startswith("/"):
             endpoint_url = "/" + endpoint_url
 
         if not ratelimit_after:
-            self.rate_limiter.wait(endpoint_url, show_progress=show_progress)
+            await self.rate_limiter.wait(endpoint_url, show_progress=show_progress)
 
         logger.debug(f'Request: {method} {endpoint_url} data={data!r} params={params!r}.')
 
         response = requests.request(method, self.base_url + endpoint_url, json=data, headers=self.headers, params=params)
         self.rate_limiter.update_from_headers(endpoint_url, response.headers)
         if ratelimit_after:
-            self.rate_limiter.wait(endpoint_url, show_progress=show_progress)
+            await self.rate_limiter.wait(endpoint_url, show_progress=show_progress)
 
         if response.status_code == 429:
             # This can happen with first request when we're rate-limiting afterwards
@@ -71,20 +74,20 @@ class Client:
         else:
             return response.content
 
-    def get_dimensions(self) -> Dimensions:
-        data = self.make_request("GET", "get_size")
+    async def async_get_dimensions(self) -> Dimensions:
+        data = await self.async_make_request("GET", "get_size")
         return Dimensions(width=data["width"], height=data["height"])
 
-    def get_canvas(self, show_progress: bool = False) -> Canvas:
-        data = self.make_request("GET", "get_pixels", parse_json=False, show_progress=show_progress)
+    async def async_get_canvas(self, show_progress: bool = False) -> Canvas:
+        data = await self.async_make_request("GET", "get_pixels", parse_json=False, show_progress=show_progress)
         return Canvas(self.size, data)
 
-    def get_pixel(self, x: int, y: int, show_progress: bool = False) -> Pixel:
-        data = self.make_request("GET", "get_pixel", params={"x": x, "y": y}, show_progress=show_progress)
+    async def async_get_pixel(self, x: int, y: int, show_progress: bool = False) -> Pixel:
+        data = await self.async_make_request("GET", "get_pixel", params={"x": x, "y": y}, show_progress=show_progress)
         hex_color = data["rgb"]
         return Pixel.from_hex(hex_color)
 
-    def put_pixel(
+    async def async_put_pixel(
         self,
         x: int, y: int,
         color: Union[int, str, tuple[int, int, int], Color],
@@ -97,7 +100,7 @@ class Client:
         # time we have finished waiting, whereas for GET endpoints, we want to
         # return the information as soon as it is given.
         try:
-            data = self.make_request(
+            data = await self.async_make_request(
                 'POST', 'set_pixel',
                 data={
                     'x': x,
@@ -116,3 +119,9 @@ class Client:
 
         logger.info('Success: {message}'.format(**data))
         return data['message']
+
+    make_request = synchronize(async_make_request)
+    get_dimensions = synchronize(async_get_dimensions)
+    get_canvas = synchronize(async_get_canvas)
+    get_pixel = synchronize(async_get_pixel)
+    put_pixel = synchronize(async_put_pixel)

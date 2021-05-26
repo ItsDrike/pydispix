@@ -1,7 +1,8 @@
-import sys
-import time
+import asyncio
 import logging
+import sys
 from collections import defaultdict
+
 from requests import Response
 from requests.models import CaseInsensitiveDict
 
@@ -35,11 +36,11 @@ class RateLimitedEndpoint:
 
         return self.default_delay
 
-    def sleep(self, seconds: int, *, show_progress: bool = False):
+    async def sleep(self, seconds: int, *, show_progress: bool = False):
         # Progress bars shouldn't appear if we're waiting less than 5 seconds
         # it tends to be spammy and doesn't really provide much value
         if not show_progress or seconds < 5:
-            return time.sleep(seconds)
+            return await asyncio.sleep(seconds)
 
         toolbar_width = 40
 
@@ -49,24 +50,24 @@ class RateLimitedEndpoint:
         sys.stdout.write("\b" * (toolbar_width + 1))  # return to start of line, after '['
 
         for i in range(toolbar_width):
-            time.sleep(seconds / toolbar_width)
+            await asyncio.sleep(seconds / toolbar_width)
             sys.stdout.write("#")
             sys.stdout.flush()
         sys.stdout.write("]\n")  # this ends the progress bar
 
-    def wait(self, *, show_progress: bool = False):
+    async def wait(self, *, show_progress: bool = False):
         if self.anti_spam_delay != 0:
             logger.warning(f"Sleeping for {self.anti_spam_delay}s, anti-spam cooldown triggered!")
-            return self.sleep(self.anti_spam_delay, show_progress=show_progress)
+            return await self.sleep(self.anti_spam_delay, show_progress=show_progress)
         if self.cooldown_time != 0:
             logger.info(f"Sleeping {self.cooldown_time}s, on cooldown.")
-            return self.sleep(self.cooldown_time, show_progress=show_progress)
+            return await self.sleep(self.cooldown_time, show_progress=show_progress)
         if self.remaining_requests == 0:
             logger.info(f"Sleeping {self.reset_time}s, on reset.")
-            return self.sleep(self.reset_time, show_progress=show_progress)
+            return await self.sleep(self.reset_time, show_progress=show_progress)
 
         logger.debug(f"Sleeping default delay ({self.default_delay}), {self.remaining_requests} requests remaining.")
-        return self.sleep(self.default_delay, show_progress=show_progress)
+        return await self.sleep(self.default_delay, show_progress=show_progress)
 
 
 class RateLimiter:
@@ -77,9 +78,9 @@ class RateLimiter:
         limiter = self.rate_limits[endpoint]
         limiter.update_from_headers(headers)
 
-    def wait(self, endpoint: str, show_progress: bool = False):
+    async def wait(self, endpoint: str, show_progress: bool = False):
         limiter = self.rate_limits[endpoint]
-        limiter.wait(show_progress=show_progress)
+        await limiter.wait(show_progress=show_progress)
 
 
 class RateLimitBreached(Exception):
