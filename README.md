@@ -60,7 +60,7 @@ ff0000
 ff0000
 00ff00
 0000ff''')
-await ad.draw()
+ad.draw()
 ```
 
 Format of the drawing plan:
@@ -72,6 +72,14 @@ Format of the drawing plan:
 - Each pixel, left-to-right, top-to-bottom.
 
 Auto-draw will avoid colouring already correct pixels, for efficiency.
+
+You can also run this continually with `guard=True` which makes sure that after your image
+is drawn, this keeps running to check if it haven't been tampered with, and fixes all non-matching
+pixels
+
+```py
+ad.draw(guard=True)
+```
 
 ## Logging
 
