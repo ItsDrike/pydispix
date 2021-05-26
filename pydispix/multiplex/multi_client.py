@@ -38,10 +38,10 @@ class MultiClient:
         if multiplex_amt is None:
             multiplex_amt = len(tokens)
         if multiplexed_positions is None:
-            if len(tokens) > len(multiplex_amt):
+            if len(tokens) > multiplex_amt:
                 multiplexed_positions = list(range(multiplex_amt))
             else:
-                multiplexed_positions = list(range(tokens))
+                multiplexed_positions = list(range(len(tokens)))
 
         if len(tokens) < len(multiplexed_positions):
             raise ValueError(f"You can't support more positions than you have tokens. ({len(tokens)} < {len(multiplexed_positions)})")
@@ -56,7 +56,7 @@ class MultiClient:
 
     def get_free_clients(self):
         """get first n free clients"""
-        for client, is_free in self.clients:
+        for client, is_free in self.clients.items():
             if is_free:
                 yield client
 
