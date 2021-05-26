@@ -85,9 +85,7 @@ class AutoDrawer:
                     dy = y - self.y0
                     color = self.grid[dy][dx]
                     if canvas[x, y] == color:
-                        logger.debug(
-                            f'Skipping already correct pixel at {x}, {y}.'
-                        )
+                        logger.debug(f'Skipping already correct pixel at {x}, {y}.')
                         continue
                     self.client.put_pixel(x, y, color, show_progress=show_progress, retry_on_limit=True)
                     # Putting a pixel can lead to long cooldown, so we update the canvas
