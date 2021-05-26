@@ -109,7 +109,7 @@ canvas = client.get_canvas(show_progress=True)
 client.put_pixel(52, 10, "FFFFFF", show_progress=True)
 ```
 
-![Peek mp4](https://user-images.githubusercontent.com/20902250/119607092-418e4200-bde3-11eb-9ac5-4e455ffd47c2.mp4)
+https://user-images.githubusercontent.com/20902250/119607092-418e4200-bde3-11eb-9ac5-4e455ffd47c2.mp4
 
 ## Logging
 
