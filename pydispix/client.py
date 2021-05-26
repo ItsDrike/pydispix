@@ -71,7 +71,7 @@ class Client:
         hex_color = data["rgb"]
         return Pixel.from_hex(hex_color)
 
-    def put_pixel(self, x: int, y: int, color: Union[int, str, Color]) -> str:
+    def put_pixel(self, x: int, y: int, color: Union[int, str, tuple[int, int, int], Color]) -> str:
         """Draw a pixel and return a message."""
         # Wait for ratelimits *after* making request, not before. This makes
         # sense because we don't know how the canvas may have changed by the

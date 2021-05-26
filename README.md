@@ -32,6 +32,7 @@ client.put_pixel(50, 10, 'cyan')
 client.put_pixel(1, 5, pydispix.Color.BLURPLE)
 client.put_pixel(100, 4, '93FF00')
 client.put_pixel(44, 0, 0xFF0000)
+client.put_pixel(8, 54, (255, 255, 255))
 ```
 
 ## Auto-draw

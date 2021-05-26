@@ -24,7 +24,7 @@ class Color(enum.Enum):
     DISCORD_BLACK = '23272A'
 
 
-def parse_color(value: Union[int, str, Color]) -> str:
+def parse_color(value: Union[int, str, tuple[int, int, int], Color]) -> str:
     """Parse a colour to a hex string.
     Accepts integers, strings and instances of the Colour enum.
     """
@@ -37,11 +37,21 @@ def parse_color(value: Union[int, str, Color]) -> str:
             return neat_value
         if value.upper() in Colour.__members__:
             return Colour.__members__[value.upper()].value
-    elif isinstance(value, Colour):
+    elif isinstance(value, Color):
         return value.value
     elif isinstance(value, Pixel):
         # Remove leading "#".
-        return str(value)[1:]
+        return str(value).removeprefix("#")
+    elif isinstance(value, tuple):
+        if len(value) == 3:
+            for col_byte in value:
+                if not isinstance(col_byte, int):
+                    raise TypeError(f"Expected tuple of 3 integers, found {col_byte.__class__.__name__}")
+                if col_byte < 0 or col_byte > 255:
+                    raise ValueError(f"Colors in rgb tuple must follow 0 <= x <= 255, got {col_byte}")
+
+        return f"{value[0]:0>2x}{value[1]:0>2x}{value[2]:0>2x}"
+
     raise ValueError(f'Invalid colour "{value}".')
 
 
