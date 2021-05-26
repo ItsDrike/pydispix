@@ -82,13 +82,13 @@ class AutoDrawer:
                 for y in range(self.y0, self.y1):
                     dx = x - self.x0
                     dy = y - self.y0
-                    colour = self.grid[dy][dx]
-                    if canvas[x, y] == colour:
+                    color = self.grid[dy][dx]
+                    if canvas[x, y] == color:
                         logger.debug(
                             f'Skipping already correct pixel at {x}, {y}.'
                         )
                         continue
-                    self.client.put_pixel(x, y, colour)
+                    self.client.put_pixel(x, y, color)
                     # Putting a pixel can lead to long cooldown, so we update the canvas
                     # by making another request to fetch it
                     canvas = self.client.get_canvas()
