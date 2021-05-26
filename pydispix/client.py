@@ -4,7 +4,7 @@ import logging
 from collections import namedtuple
 from typing import Union, Optional
 
-from pydispix.ratelimits import RateLimiter
+from pydispix.ratelimits import RateLimiter, RateLimitBreached
 from pydispix.canvas import Canvas, Pixel
 from pydispix.color import Color, parse_color
 
@@ -54,6 +54,18 @@ class Client:
         if ratelimit_after:
             self.rate_limiter.wait(endpoint_url, show_progress=show_progress)
 
+        if response.status_code == 429:
+            # This can happen with first request when we're rate-limiting afterwards
+            # Or when 2 machines are using the same token
+            raise RateLimitBreached(
+                "Got code 421, sent request while being rate limited. \n"
+                "This occurs when you're sending first request with rate-limit waiting afterwards, "
+                "or when multiple programs are using your token.",
+                response=response
+            )
+        if response.status_code != 200:
+            raise requests.HTTPError(f"Received code {response.status_code}", response=response)
+
         if parse_json:
             return response.json()
         else:
@@ -77,21 +89,30 @@ class Client:
         x: int, y: int,
         color: Union[int, str, tuple[int, int, int], Color],
         show_progress: bool = False,
+        retry_on_limit: bool = False,
     ) -> str:
         """Draw a pixel and return a message."""
         # Wait for ratelimits *after* making request, not before. This makes
         # sense because we don't know how the canvas may have changed by the
         # time we have finished waiting, whereas for GET endpoints, we want to
         # return the information as soon as it is given.
-        data = self.make_request(
-            'POST', 'set_pixel',
-            data={
-                'x': x,
-                'y': y,
-                'rgb': parse_color(color)
-            },
-            ratelimit_after=True,
-            show_progress=show_progress
-        )
+        try:
+            data = self.make_request(
+                'POST', 'set_pixel',
+                data={
+                    'x': x,
+                    'y': y,
+                    'rgb': parse_color(color)
+                },
+                ratelimit_after=True,
+                show_progress=show_progress
+            )
+        except RateLimitBreached as exc:
+            logger.error(f"Request failed: {exc}")
+            if retry_on_limit:
+                return self.put_pixel(x, y, color, show_progress=show_progress, retry_on_limit=retry_on_limit)
+            else:
+                raise exc
+
         logger.info('Success: {message}'.format(**data))
         return data['message']

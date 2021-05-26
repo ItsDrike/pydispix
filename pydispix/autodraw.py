@@ -89,7 +89,7 @@ class AutoDrawer:
                             f'Skipping already correct pixel at {x}, {y}.'
                         )
                         continue
-                    self.client.put_pixel(x, y, color, show_progress=show_progress)
+                    self.client.put_pixel(x, y, color, show_progress=show_progress, retry_on_limit=True)
                     # Putting a pixel can lead to long cooldown, so we update the canvas
                     # by making another request to fetch it
                     canvas = self.client.get_canvas()

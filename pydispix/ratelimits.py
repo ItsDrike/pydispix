@@ -2,6 +2,7 @@ import sys
 import time
 import logging
 from collections import defaultdict
+from requests import Response
 from requests.models import CaseInsensitiveDict
 
 logger = logging.getLogger('pydispix')
@@ -72,3 +73,29 @@ class RateLimiter:
     def wait(self, endpoint: str, show_progress: bool = False):
         limiter = self.rate_limits[endpoint]
         limiter.wait(show_progress=show_progress)
+
+
+class RateLimitBreached(Exception):
+    def __init__(self, *args, response: Response, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Get time limits from headers with RateLimitedEndpoint
+        temp_rate_limit = RateLimitedEndpoint()
+        temp_rate_limit.update_from_headers(response.headers)
+
+        self.requests_limit = temp_rate_limit.requests_limit
+        self.reset_time = temp_rate_limit.reset_time
+        self.remaining_requests = temp_rate_limit.remaining_requests
+        self.cooldown_time = temp_rate_limit.cooldown_time
+
+        # Store the expected wait and the original response which trigerred this exception
+        self.expected_wait_time = temp_rate_limit.get_wait_time()
+        self.response = response
+
+    def __str__(self):
+        s = super().__str__()
+        s += f"\nresponse={self.response.content}"
+        if self.expected_wait_time != 0:
+            s += f"\nexpected_wait_time={self.expected_wait_time}"
+
+        return s
