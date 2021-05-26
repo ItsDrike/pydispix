@@ -4,7 +4,7 @@ A simple wrapper around [Python Discord Pixels](https://pixels.pythondiscord.com
 
 Requires Python 3.9+ (3.x where x >= 9).
 
-Requires `requests` and `pillow` from pip.
+Requires `requests`, `pillow` and `matplotlib` from pip.
 
 ## Example
 
@@ -33,6 +33,20 @@ client.put_pixel(1, 5, pydispix.Color.BLURPLE)
 client.put_pixel(100, 4, '93FF00')
 client.put_pixel(44, 0, 0xFF0000)
 client.put_pixel(8, 54, (255, 255, 255))
+```
+
+We can also display the image with pillow
+
+```py
+canvas = client.get_canvas()
+canvas.show()
+```
+
+Or we can display with `matplotlib` to see it with coordinates
+
+```py
+canvas = client.get_canvas()
+canvas.mpl_show()
 ```
 
 ## Auto-draw

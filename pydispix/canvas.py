@@ -1,5 +1,6 @@
 
 import PIL.Image
+import matplotlib.pyplot as plt
 
 
 class Pixel:
@@ -72,6 +73,11 @@ class Canvas:
     def show(self):
         """Display the image."""
         self.image.show()
+
+    def mpl_show(self):
+        """Display the image with matplotlib"""
+        plt.imshow(self.image)
+        plt.show()
 
     def save(self, path: str):
         """Save the image to a given file."""
