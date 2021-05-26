@@ -57,14 +57,14 @@ Load an image:
 from PIL import Image
 
 im = Image.open('pretty.png')
-ad = pydispix.AutoDraw.load_image(client, (5, 40), im, scale=0.1)
+ad = pydispix.AutoDrawer.load_image(client, (5, 40), im, scale=0.1)
 ad.draw()
 ```
 
 Or specify each pixel:
 
 ```python
-ad = pydispix.AutoDraw.load(client, '''0
+ad = pydispix.AutoDrawer.load(client, '''0
 0
 3
 2
