@@ -15,15 +15,19 @@ class RateLimitedEndpoint:
         self.reset_time = 0                 # How much time to wait once we hit reset
         self.cooldown_time = 0              # Some endpoints force longer cooldown times
         self.default_delay = default_delay  # If no other limit is found, how long should we wait
+        self.anti_spam_delay = 0            # This is hit when multiple tokens are used
 
     def update_from_headers(self, headers: CaseInsensitiveDict[str]):
         self.remaining_requests = int(headers.get('requests-remaining', 1))
         self.reset_time = int(headers.get('requests-reset', 0))
         self.cooldown_time = int(headers.get('cooldown-reset', 0))
+        self.anti_spam_delay = int(headers.get('retry-after'), 0)
         if "requests-limit" in headers:
             self.requests_limit = int(headers["requests-limit"])
 
     def get_wait_time(self):
+        if self.anti_spam_delay != 0:
+            return self.anti_spam_delay
         if self.cooldown_time != 0:
             return self.cooldown_time
         if self.remaining_requests == 0:
@@ -51,11 +55,14 @@ class RateLimitedEndpoint:
         sys.stdout.write("]\n")  # this ends the progress bar
 
     def wait(self, *, show_progress: bool = False):
+        if self.anti_spam_delay != 0:
+            logger.warning(f"Sleeping for {self.anti_spam_delay}s, anti-spam cooldown triggered!")
+            return self.sleep(self.anti_spam_delay, show_progress=show_progress)
         if self.cooldown_time != 0:
-            logger.warning(f"Sleeping {self.cooldown_time}s, on cooldown.")
+            logger.info(f"Sleeping {self.cooldown_time}s, on cooldown.")
             return self.sleep(self.cooldown_time, show_progress=show_progress)
         if self.remaining_requests == 0:
-            logger.warning(f"Sleeping {self.reset_time}s, on reset.")
+            logger.info(f"Sleeping {self.reset_time}s, on reset.")
             return self.sleep(self.reset_time, show_progress=show_progress)
 
         logger.debug(f"Sleeping default delay ({self.default_delay}), {self.remaining_requests} requests remaining.")
