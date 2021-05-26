@@ -4,7 +4,7 @@ A simple wrapper around [Python Discord Pixels](https://pixels.pythondiscord.com
 
 Requires Python 3.9+ (3.x where x >= 9).
 
-Requires `pillow` from pip.
+Requires `requests` and `pillow` from pip.
 
 ## Example
 
