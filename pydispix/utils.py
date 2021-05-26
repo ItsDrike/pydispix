@@ -1,8 +1,8 @@
 import asyncio
-from typing import Awaitable, TypeVar
+from typing import Callable, TypeVar
 from functools import wraps
 
-F = TypeVar("F", bound=Awaitable)
+F = TypeVar("F", bound=Callable)
 
 
 def synchronize(func: F) -> F:
