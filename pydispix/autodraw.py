@@ -75,7 +75,7 @@ class AutoDrawer:
             grid.append(row)
         return cls(client, x, y, grid)
 
-    def draw(self, *, guard: bool = False, guard_delay: int = 5):
+    def draw(self, *, guard: bool = False, guard_delay: int = 5, show_progress: bool = True):
         """Draw the pixels of the image."""
         while True:
             canvas = self.client.get_canvas()
@@ -89,7 +89,7 @@ class AutoDrawer:
                             f'Skipping already correct pixel at {x}, {y}.'
                         )
                         continue
-                    self.client.put_pixel(x, y, color)
+                    self.client.put_pixel(x, y, color, show_progress=show_progress)
                     # Putting a pixel can lead to long cooldown, so we update the canvas
                     # by making another request to fetch it
                     canvas = self.client.get_canvas()

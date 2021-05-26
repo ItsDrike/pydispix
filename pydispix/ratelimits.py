@@ -10,7 +10,7 @@ logger = logging.getLogger('pydispix')
 class RateLimitedEndpoint:
     def __init__(self, default_delay: int = 0):
         self.requests_limit = None          # Total number of requests before reset time wait
-        self.remaining_requests = 1          # Remaining number of requests before reset time wait
+        self.remaining_requests = 1         # Remaining number of requests before reset time wait
         self.reset_time = 0                 # How much time to wait once we hit reset
         self.cooldown_time = 0              # Some endpoints force longer cooldown times
         self.default_delay = default_delay  # If no other limit is found, how long should we wait
