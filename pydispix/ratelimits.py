@@ -21,7 +21,7 @@ class RateLimitedEndpoint:
         self.remaining_requests = int(headers.get('requests-remaining', 1))
         self.reset_time = int(headers.get('requests-reset', 0))
         self.cooldown_time = int(headers.get('cooldown-reset', 0))
-        self.anti_spam_delay = int(headers.get('retry-after'), 0)
+        self.anti_spam_delay = int(headers.get('retry-after', 0))
         if "requests-limit" in headers:
             self.requests_limit = int(headers["requests-limit"])
 
