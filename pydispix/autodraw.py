@@ -1,5 +1,6 @@
 """Tool for automatically drawing images."""
 import logging
+import time
 
 import PIL.Image
 
@@ -74,7 +75,7 @@ class AutoDrawer:
             grid.append(row)
         return cls(client, x, y, grid)
 
-    def draw(self, *, guard=False):
+    def draw(self, *, guard: bool = False, guard_delay: int = 5):
         """Draw the pixels of the image."""
         while True:
             canvas = self.client.get_canvas()
@@ -96,3 +97,9 @@ class AutoDrawer:
                 # Check this here, to act as do-while,
                 # (always run first time, only continue if this is met)
                 break
+            # When we're guarding we need to update canvas even if no pixel was drawn
+            # because otherwise we'd be looping over same non-updated canvas forever
+            # since this looping with no changes takes a long time, we should also sleep
+            # to avoid needless cpu usage
+            time.sleep(guard_delay)
+            canvas = self.client.get_canvas()

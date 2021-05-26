@@ -89,11 +89,15 @@ Auto-draw will avoid colouring already correct pixels, for efficiency.
 
 You can also run this continually with `guard=True` which makes sure that after your image
 is drawn, this keeps running to check if it haven't been tampered with, and fixes all non-matching
-pixels
+pixels.
 
 ```py
-ad.draw(guard=True)
+ad.draw(guard=True, guard_delay=2)
 ```
+
+Guard delay is the delay between each full iteration of all pixels. We need to wait since
+looping without any changes is almost instant in python, and we don't want to put cpu through that
+stress for no reason
 
 ## Logging
 
