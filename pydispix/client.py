@@ -1,5 +1,4 @@
 import logging
-import os
 from collections import namedtuple
 from typing import Optional, Union
 
@@ -8,7 +7,7 @@ import requests
 from pydispix.canvas import Canvas, Pixel
 from pydispix.color import Color, parse_color
 from pydispix.ratelimits import RateLimitBreached, RateLimiter
-from pydispix.utils import synchronize
+from pydispix.utils import synchronize, get_token_from_env
 
 logger = logging.getLogger('pydispix')
 Dimensions = namedtuple('Dimensions', ('width', 'height'))
@@ -18,10 +17,7 @@ class Client:
     """HTTP client to the pixel API."""
     def __init__(self, token: Optional[str] = None, base_url="https://pixels.pythondiscord.com"):
         if token is None:
-            try:
-                token = os.environ['TOKEN']
-            except KeyError:
-                raise RuntimeError("Unable to load token, 'TOKEN' environmental variable not found.")
+            token = get_token_from_env()
 
         self.token = token
         self.base_url = base_url
@@ -111,7 +107,7 @@ class Client:
                 show_progress=show_progress
             )
         except RateLimitBreached as exc:
-            logger.error(f"Request failed: {exc}")
+            logger.error(f"Failure - Rate Limited: {exc}")
             if retry_on_limit:
                 return await self.async_put_pixel(x, y, color, show_progress=show_progress, retry_on_limit=retry_on_limit)
             else:

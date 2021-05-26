@@ -1,6 +1,7 @@
 import asyncio
-from typing import Callable, TypeVar
+import os
 from functools import wraps
+from typing import Callable, TypeVar
 
 F = TypeVar("F", bound=Callable)
 
@@ -17,3 +18,11 @@ def synchronize(func: F) -> F:
         return asyncio.run(func(*args, **kwargs))
 
     return wrapper
+
+
+def get_token_from_env() -> str:
+    """Try to obtain the token from environmental vars."""
+    try:
+        return os.environ['TOKEN']
+    except KeyError:
+        raise RuntimeError("Unable to load token, 'TOKEN' environmental variable not found.")
