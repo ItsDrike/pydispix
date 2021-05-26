@@ -30,7 +30,6 @@ class Client:
             "User-Agent": "ItsDrike pydispix",
         }
         self.rate_limiter = RateLimiter()
-        self.width, self.height = self.size = self.get_dimensions()
 
     async def async_make_request(
         self,
@@ -80,7 +79,8 @@ class Client:
 
     async def async_get_canvas(self, show_progress: bool = False) -> Canvas:
         data = await self.async_make_request("GET", "get_pixels", parse_json=False, show_progress=show_progress)
-        return Canvas(self.size, data)
+        size = await self.get_dimensions()
+        return Canvas(size, data)
 
     async def async_get_pixel(self, x: int, y: int, show_progress: bool = False) -> Pixel:
         data = await self.async_make_request("GET", "get_pixel", params={"x": x, "y": y}, show_progress=show_progress)
@@ -113,7 +113,7 @@ class Client:
         except RateLimitBreached as exc:
             logger.error(f"Request failed: {exc}")
             if retry_on_limit:
-                return self.put_pixel(x, y, color, show_progress=show_progress, retry_on_limit=retry_on_limit)
+                return await self.async_put_pixel(x, y, color, show_progress=show_progress, retry_on_limit=retry_on_limit)
             else:
                 raise exc
 
