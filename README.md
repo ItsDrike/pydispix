@@ -109,6 +109,8 @@ canvas = client.get_canvas(show_progress=True)
 client.put_pixel(52, 10, "FFFFFF", show_progress=True)
 ```
 
+https://user-images.githubusercontent.com/20902250/119607092-418e4200-bde3-11eb-9ac5-4e455ffd47c2.mp4
+
 ## Handle `RateLimitBreached` exceptions
 
 This exception occurs when you first make a request, of type you haven't used before (different api endpoint). Most commonly
@@ -118,8 +120,6 @@ To avoid this, you can add `retry_on_limit=True` flag, to `put_pixel` which auto
 ```py
 pixel = client.get_pixel(0, 0, retry_on_limit=True)
 ```
-
-https://user-images.githubusercontent.com/20902250/119607092-418e4200-bde3-11eb-9ac5-4e455ffd47c2.mp4
 
 ## Logging
 
