@@ -4,9 +4,10 @@ import logging
 from collections import namedtuple
 from typing import Union, Optional
 
-from pydispix.ratelimits import RateLimiter, RateLimitBreached
+from pydispix.ratelimits import RateLimiter
 from pydispix.canvas import Canvas, Pixel
 from pydispix.color import Color, parse_color
+from pydispix.errors import RateLimitBreached, handle_invalid_body
 
 logger = logging.getLogger('pydispix')
 Dimensions = namedtuple('Dimensions', ('width', 'height'))
@@ -60,6 +61,11 @@ class Client:
         if response.status_code == 401:
             logger.error("Request failed with 401 (Forbidden) code. This means your API token is most likely invalid.")
             raise requests.HTTPError(f"Received code {response.status_code} - FORBIDDEN: Is your API token correct?")
+
+        if response.status_code == 422:
+            exc = handle_invalid_body(response)
+            if exc is not None:
+                raise exc
 
         if response.status_code != 200:
             raise requests.HTTPError(f"Received code {response.status_code}", response=response)
