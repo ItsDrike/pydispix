@@ -14,12 +14,15 @@ Dimensions = namedtuple('Dimensions', ('width', 'height'))
 
 class Client:
     """HTTP client to the pixel API."""
-    def __init__(self, token: Optional[str] = None, base_url="https://pixels.pythondiscord.com"):
+    def __init__(self, token: Optional[str] = None, base_url: str = "https://pixels.pythondiscord.com/"):
         if token is None:
             try:
                 token = os.environ['TOKEN']
             except KeyError:
                 raise RuntimeError("Unable to load token, 'TOKEN' environmental variable not found.")
+
+        if not base_url.endswith("/"):
+            base_url = base_url + "/"
 
         self.token = token
         self.base_url = base_url
@@ -29,6 +32,34 @@ class Client:
         }
         self.rate_limiter = RateLimiter()
         self.width, self.height = self.size = self.get_dimensions()
+
+    def make_raw_request(
+        self, method: str, endpoint_url: str, *,
+        data: Optional[dict] = None,
+        params: Optional[dict] = None,
+    ) -> requests.Response:
+        """
+        This method is here purely to make an HTTP request and update the rate limiter.
+        Even though this will update the rate limtis, it will not wait for them.
+        """
+        logger.debug(f"Request: {method} on {endpoint_url} {data=} {params=}.")
+        response = requests.request(
+            method, self.base_url + endpoint_url,
+            json=data,
+            params=params,
+            headers=self.headers
+        )
+        self.rate_limiter.update_from_headers(endpoint_url, response.headers)
+
+        if response.status_code == 429:
+            raise RateLimitBreached(
+                "Request didn't succeed because it was made during a rate-limit phase.",
+                response=response
+            )
+        if response.status_code != 200:
+            raise requests.HTTPError(f"Received code {response.status_code}", response=response)
+
+        return response
 
     def make_request(
         self,
@@ -41,45 +72,56 @@ class Client:
         ratelimit_after: bool = False,
         show_progress: bool = False,
     ) -> Union[bytes, dict]:
-        if not endpoint_url.startswith("/"):
-            endpoint_url = "/" + endpoint_url
+        """
+        Make a `method` request to given `endpoint_url`, while respecting the API rate limits.
+        You can optionally pass JSON `data` and `parameters`.
+        You can set `show_progress` to draw a progress bar while waiting for the rate limtis.
 
-        if not ratelimit_after:
-            self.rate_limiter.wait(endpoint_url, show_progress=show_progress)
+        For some requests, you may want to wait for the rate limit timeout *after* the request
+        was made. This is needed because with some requests we want the most recent data we
+        can get, after waiting out the limit (for example with get_canvas), but with others
+        where we want to make our request as soon as possible, and only then wait for rate limits.
+        (for example with set_pixel, we don't know how the canvas may have changed by the
+        time we have finished waiting)
+        """
+        while True:
+            if not ratelimit_after:
+                self.rate_limiter.wait(endpoint_url, show_progress=show_progress)
 
-        logger.debug(f'Request: {method} {endpoint_url} data={data!r} params={params!r}.')
+            try:
+                response = self.make_raw_request(method, endpoint_url, data=data, params=params)
+            except RateLimitBreached:
+                # This can happen with first request when we're rate-limiting afterwards
+                # Or when 2 machines are using the same token. When this occurs we continue
+                # and make the request again.
+                logger.warning("Hit rate limit, repeating request")
 
-        response = requests.request(method, self.base_url + endpoint_url, json=data, headers=self.headers, params=params)
-        self.rate_limiter.update_from_headers(endpoint_url, response.headers)
-        if ratelimit_after:
-            self.rate_limiter.wait(endpoint_url, show_progress=show_progress)
+                # Wait for the rate limit if we're limiting afterwards
+                if ratelimit_after:
+                    self.rate_limiter.wait(endpoint_url, show_progress=show_progress)
 
-        if response.status_code == 429:
-            # This can happen with first request when we're rate-limiting afterwards
-            # Or when 2 machines are using the same token
-            raise RateLimitBreached(
-                "Got code 421, sent request while being rate limited. \n"
-                "This occurs when you're sending first request with rate-limit waiting afterwards, "
-                "or when multiple programs are using your token.",
-                response=response
-            )
-        if response.status_code != 200:
-            raise requests.HTTPError(f"Received code {response.status_code}", response=response)
+                continue
 
-        if parse_json:
-            return response.json()
-        else:
-            return response.content
+            if ratelimit_after:
+                self.rate_limiter.wait(endpoint_url, show_progress=show_progress)
+
+            if parse_json:
+                return response.json()
+            else:
+                return response.content
 
     def get_dimensions(self) -> Dimensions:
+        """Make a request to obtain the canvas dimensions"""
         data = self.make_request("GET", "get_size")
         return Dimensions(width=data["width"], height=data["height"])
 
     def get_canvas(self, show_progress: bool = False) -> Canvas:
+        """Fetch the whole canvas and return it in a `Canvas` object."""
         data = self.make_request("GET", "get_pixels", parse_json=False, show_progress=show_progress)
         return Canvas(self.size, data)
 
     def get_pixel(self, x: int, y: int, show_progress: bool = False) -> Pixel:
+        """Fetch rgb data about a specific pixel"""
         data = self.make_request("GET", "get_pixel", params={"x": x, "y": y}, show_progress=show_progress)
         hex_color = data["rgb"]
         return Pixel.from_hex(hex_color)
@@ -96,23 +138,16 @@ class Client:
         # sense because we don't know how the canvas may have changed by the
         # time we have finished waiting, whereas for GET endpoints, we want to
         # return the information as soon as it is given.
-        try:
-            data = self.make_request(
-                'POST', 'set_pixel',
-                data={
-                    'x': x,
-                    'y': y,
-                    'rgb': parse_color(color)
-                },
-                ratelimit_after=True,
-                show_progress=show_progress
-            )
-        except RateLimitBreached as exc:
-            logger.error(f"Request failed: {exc}")
-            if retry_on_limit:
-                return self.put_pixel(x, y, color, show_progress=show_progress, retry_on_limit=retry_on_limit)
-            else:
-                raise exc
+        data = self.make_request(
+            'POST', 'set_pixel',
+            data={
+                'x': x,
+                'y': y,
+                'rgb': parse_color(color)
+            },
+            ratelimit_after=True,
+            show_progress=show_progress
+        )
 
         logger.info('Success: {message}'.format(**data))
         return data['message']
