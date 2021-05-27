@@ -96,12 +96,12 @@ class AutoDrawer:
         self.client.put_pixel(x, y, color, show_progress=show_progress)
         return True
 
-    def draw(self, guard: bool = False, guard_delay: int = 5, show_progres: bool = True):
+    def draw(self, guard: bool = False, guard_delay: int = 5, show_progress: bool = True):
         """Draw the pixels of the image, attempting each pixel max. once."""
         while True:
             canvas = self.client.get_canvas()
             for x, y in self._iter_coords():
-                if self.draw_pixel(canvas, x, y, show_progress=show_progres):
+                if self.draw_pixel(canvas, x, y, show_progress=show_progress):
                     canvas = self.client.get_canvas()
             if not guard:
                 # Check this here, to act as do-while,
