@@ -2,7 +2,7 @@
 
 A simple wrapper around [Python Discord Pixels](https://pixels.pythondiscord.com).
 
-Requires Python 3.9+ (3.x where x >= 9).
+Requires Python 3.7+ (3.x where x >= 7).
 
 Requires `requests`, `pillow` and `matplotlib` from pip.
 
@@ -61,7 +61,7 @@ ad = pydispix.AutoDrawer.load_image(client, (5, 40), im, scale=0.1)
 ad.draw()
 ```
 
-Or specify each pixel:
+To prefer fixing existing pixels to placing new ones:
 
 ```python
 ad = pydispix.AutoDrawer.load(client, '''0

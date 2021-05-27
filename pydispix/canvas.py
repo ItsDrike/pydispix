@@ -14,7 +14,7 @@ class Pixel:
     @classmethod
     def from_hex(cls, hex: str) -> "Pixel":
         """Load a pixel colour from a hex string."""
-        hex = hex.removeprefix('#')
+        hex = hex.lstrip('#')
         return cls(*(int(hex[i:i + 2], 16) for i in range(0, 6, 2)))
 
     @property
@@ -53,7 +53,13 @@ class Canvas:
     def __init__(self, size: tuple[int, int], data: bytes):
         """Parse the raw canvas data."""
         self.width, self.height = size
-
+        expected_length = self.width * self.height * 3
+        actual_length = len(data)
+        if expected_length != actual_length:
+            raise CanvasFormatError(
+                f'Expected {expected_length} bytes, got {actual_length} '
+                'bytes.'
+            )
         pixels = []
         for start_idx in range(0, len(data), 3):
             pixels.append(Pixel(*data[start_idx:start_idx + 3]))
@@ -82,3 +88,7 @@ class Canvas:
     def save(self, path: str):
         """Save the image to a given file."""
         self.image.save(path)
+
+
+class CanvasFormatError(Exception):
+    """Exception raised when the canvas is badly formatted."""
