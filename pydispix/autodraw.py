@@ -1,10 +1,11 @@
 """Tool for automatically drawing images."""
 import logging
 import time
+from typing import Iterator
 
 import PIL.Image
 
-from pydispix.canvas import Pixel
+from pydispix.canvas import Pixel, Canvas
 from pydispix.client import Client
 
 
@@ -46,7 +47,8 @@ class AutoDrawer:
 
         width = round(image.width * scale)
         height = round(image.height * scale)
-        data = list(image.resize((width, height)).getdata())
+        resized = image.resize((width, height), PIL.Image.BILINEAR)
+        data = list(resized.getdata())
         grid = [
             [Pixel(*pixel) for pixel in data[start:start + width]]
             for start in range(0, len(data), width)
@@ -75,21 +77,31 @@ class AutoDrawer:
             grid.append(row)
         return cls(client, x, y, grid)
 
-    def draw(self, *, guard: bool = False, guard_delay: int = 5, show_progress: bool = True):
-        """Draw the pixels of the image."""
+    def _iter_coords(self) -> Iterator[tuple[int, int]]:
+        """Iterate over the coordinates of the image."""
+        for x in range(self.x0, self.x1):
+            for y in range(self.y0, self.y1):
+                yield x, y
+
+    def draw_pixel(self, canvas: Canvas, x: int, y: int, show_progress: bool = True) -> bool:
+        """
+        Draw a pixel if not already drawn.
+
+        Returns True if the pixel was not already drawn.
+        """
+        color = self.grid[y - self.y0][x - self.x0]
+        if canvas[x, y] == color:
+            logger.debug(f'Skipping already correct pixel at {x}, {y}.')
+            return False
+        self.client.put_pixel(x, y, color, show_progress=show_progress)
+        return True
+
+    def draw(self, guard: bool = False, guard_delay: int = 5, show_progres: bool = True):
+        """Draw the pixels of the image, attempting each pixel max. once."""
         while True:
             canvas = self.client.get_canvas()
-            for x in range(self.x0, self.x1):
-                for y in range(self.y0, self.y1):
-                    dx = x - self.x0
-                    dy = y - self.y0
-                    color = self.grid[dy][dx]
-                    if canvas[x, y] == color:
-                        logger.debug(f'Skipping already correct pixel at {x}, {y}.')
-                        continue
-                    self.client.put_pixel(x, y, color, show_progress=show_progress, retry_on_limit=True)
-                    # Putting a pixel can lead to long cooldown, so we update the canvas
-                    # by making another request to fetch it
+            for x, y in self._iter_coords():
+                if self.draw_pixel(canvas, x, y, show_progress=show_progres):
                     canvas = self.client.get_canvas()
             if not guard:
                 # Check this here, to act as do-while,
