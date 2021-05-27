@@ -120,7 +120,8 @@ class Client:
     async def async_get_canvas(self, show_progress: bool = False) -> Canvas:
         """Fetch the whole canvas and return it in a `Canvas` object."""
         data = await self.async_make_request("GET", "get_pixels", parse_json=False, show_progress=show_progress)
-        return Canvas(self.size, data)
+        size = await self.get_dimensions()
+        return Canvas(size, data)
 
     async def async_get_pixel(self, x: int, y: int, show_progress: bool = False) -> Pixel:
         """Fetch rgb data about a specific pixel"""
