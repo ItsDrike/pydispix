@@ -52,10 +52,15 @@ class Client:
         self.rate_limiter.update_from_headers(endpoint_url, response.headers)
 
         if response.status_code == 429:
+            logger.debug(f"Request: {method} on {endpoint_url} {data=} {params=} has failed due to rate limitation.")
             raise RateLimitBreached(
                 "Request didn't succeed because it was made during a rate-limit phase.",
                 response=response
             )
+        if response.status_code == 401:
+            logger.error("Request failed with 401 (Forbidden) code. This means your API token is most likely invalid.")
+            raise requests.HTTPError(f"Received code {response.status_code} - FORBIDDEN: Is your API token correct?")
+
         if response.status_code != 200:
             raise requests.HTTPError(f"Received code {response.status_code}", response=response)
 
