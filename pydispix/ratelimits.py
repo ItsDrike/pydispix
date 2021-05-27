@@ -2,7 +2,7 @@ import sys
 import time
 import logging
 from collections import defaultdict
-from requests import Response
+import requests
 from requests.models import CaseInsensitiveDict
 
 logger = logging.getLogger('pydispix')
@@ -83,7 +83,7 @@ class RateLimiter:
 
 
 class RateLimitBreached(Exception):
-    def __init__(self, *args, response: Response, **kwargs):
+    def __init__(self, *args, response: requests.Response, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Get time limits from headers with RateLimitedEndpoint
