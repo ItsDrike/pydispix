@@ -136,7 +136,6 @@ class Client:
         x: int, y: int,
         color: Union[int, str, tuple[int, int, int], Color],
         show_progress: bool = False,
-        retry_on_limit: bool = False,
     ) -> str:
         """Draw a pixel and return a message."""
         # Wait for ratelimits *after* making request, not before. This makes
