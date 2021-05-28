@@ -1,9 +1,17 @@
-from collections import namedtuple
+from typing import Union
+from dataclasses import dataclass
+from abc import abstractmethod
 
 from pydispix.client import Client
+from pydispix.color import Color
 from pydispix.utils import resolve_url_endpoint
 
-ChurchTask = namedtuple("ChurchTask", ("x", "y", "color"))
+
+@dataclass
+class ChurchTask:
+    x: int
+    y: int
+    color: Union[int, str, tuple[int, int, int], Color]
 
 
 class ChurchClient(Client):
@@ -26,18 +34,19 @@ class ChurchClient(Client):
     def resolve_church_endpoint(self, endpoint: str):
         return resolve_url_endpoint(self.base_church_url, endpoint)
 
-    def get_task(self, endpoint="get_task") -> ChurchTask:
+    @abstractmethod
+    def get_task(self, endpoint: str = "get_task") -> ChurchTask:
         """
-        Get task from the church, this is designed to work out of the box
-        only for the church of rick, you will probably need to override
-        this method to get it to work for your church.
+        Get task from the church, this is an abstract method, you'll need
+        to override this to get it to work with your church's specific API.
         """
-        url = self.resolve_church_endpoint(endpoint)
-        data = self.make_request("GET", url, params={"key": self.church_token})
-        color = data["task"]["color"]
-        x = data["task"]["x"]
-        y = data["task"]["y"]
-        return ChurchTask(x=x, y=y, color=color)
+
+    @abstractmethod
+    def submit_task(self, church_task: ChurchTask, endpoint: str = "submit_task") -> bool:
+        """
+        Submit a task to the church, this is an abstract method, you'll need
+        to override this to get it to work with your church's specific API.
+        """
 
     def run_task(self, church_task: ChurchTask, show_progress: bool = False):
         self.put_pixel(church_task.x, church_task.y, church_task.color, show_progress=show_progress)
