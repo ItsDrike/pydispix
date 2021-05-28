@@ -8,6 +8,7 @@ from pydispix.ratelimits import RateLimiter
 from pydispix.canvas import Canvas, Pixel
 from pydispix.color import Color, parse_color
 from pydispix.errors import RateLimitBreached, InvalidToken, handle_invalid_body
+from pydispix.utils import resolve_url_endpoint
 
 logger = logging.getLogger('pydispix')
 Dimensions = namedtuple('Dimensions', ('width', 'height'))
@@ -124,13 +125,7 @@ class Client:
 
     def resolve_endpoint(self, endpoint: str) -> str:
         """Resolve given `endpoint` to use the base_url"""
-        endpoint = endpoint.removeprefix("/")
-        if endpoint.startswith("https://") or endpoint.startswith("http://"):
-            if endpoint.startswith(self.base_url):
-                return endpoint
-            raise ValueError("`endpoint` referrs to unknown full url, that doesn't belong to the base url")
-        else:
-            return self.base_url + endpoint
+        return resolve_url_endpoint(self.base_url, endpoint)
 
     def get_dimensions(self) -> Dimensions:
         """Make a request to obtain the canvas dimensions"""
