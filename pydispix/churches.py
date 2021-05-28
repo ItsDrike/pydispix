@@ -1,8 +1,11 @@
-from dataclasses import dataclass
-from typing import Union, Optional
+import logging
 import random
+from dataclasses import dataclass
+from typing import Callable, Optional, Union
 
 from pydispix.church import ChurchClient, ChurchTask
+
+logger = logging.getLogger("pydispix")
 
 SQLITE_CHURCH = "decorator-factory.su"
 RICK_CHURCH = "https://pixel-tasks.scoder12.repl.co/api"
@@ -38,7 +41,9 @@ class RickChurchClient(ChurchClient):
         params: Optional[dict] = None,
         parse_json: bool = True,
         ratelimit_after: bool = False,
+        task_after: Optional[Callable] = None,
         show_progress: bool = False,
+        repeat_on_ratelimit: bool = True,
     ) -> Union[bytes, dict]:
         """Extend regular make_request and add `key` parameter to the request"""
         if params is None:
@@ -51,6 +56,7 @@ class RickChurchClient(ChurchClient):
             params=params,
             parse_json=parse_json,
             ratelimit_after=ratelimit_after,
+            task_after=task_after,
             show_progress=show_progress
         )
 

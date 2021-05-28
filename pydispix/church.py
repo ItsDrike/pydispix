@@ -1,7 +1,11 @@
-from typing import Union
-from dataclasses import dataclass
-from abc import abstractmethod
 import logging
+from abc import abstractmethod
+from dataclasses import dataclass
+from functools import partial
+from json.decoder import JSONDecodeError
+from typing import Union
+
+import requests
 
 from pydispix.client import Client
 from pydispix.color import Color
@@ -51,16 +55,42 @@ class ChurchClient(Client):
         to override this to get it to work with your church's specific API.
         """
 
-    def put_task_pixel(self, church_task: ChurchTask, show_progress: bool = False):
-        """Add the corresponding pixel from the church_task."""
-        self.put_pixel(church_task.x, church_task.y, church_task.color, show_progress=show_progress)
+    def _put_and_submit(self, church_task: ChurchTask, endpoint: str = "submit_task", show_progress: bool = False):
+        """
+        Put new pixel on the canvas and send the `submit_task` request.
+        These are done together here because `put_pixel` waits for API
+        rate limits from Pixels API, while the church rate-limit on
+        task submitting might be lower than the api cooldown time.
+        Because of this, the submit task is ran as `task_after` to
+        `put_pixel` function.
+        """
+        submit_task = partial(self.submit_task, church_task, endpoint)
+        self.put_pixel(
+            church_task.x, church_task.y, church_task.color,
+            show_progress=show_progress,
+            task_after=submit_task
+        )
 
-    def run_task(self, show_progress: bool = False):
+    def run_task(self, show_progress: bool = False) -> bool:
         """Obtain, run and submit a single task to the church."""
         task = self.get_task()
         logger.info(f"Running church task: {task}")
-        self.put_task_pixel(task, show_progress=show_progress)
-        self.submit_task(task)
+
+        # Handle 403s by resetting the pixel, these happen when somebody
+        # managed to overwrite the pixel we set before we informed the server
+        # that we actually set it, it's quite rare, but it can happen.
+        while True:
+            try:
+                return self._put_and_submit(task, show_progress=show_progress)
+            except requests.HTTPError as exc:
+                resp = exc.response
+                if resp.status_code == 403:
+                    try:
+                        log_detail = resp.json()
+                    except JSONDecodeError:
+                        raise exc
+                    logger.warning(f"Repeating task, got 403: {log_detail}")
+                raise exc
 
     def run_tasks(self, show_progress: bool = False):
         """Keep running church tasks forever."""

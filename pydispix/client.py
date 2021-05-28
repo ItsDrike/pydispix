@@ -2,7 +2,7 @@ import os
 import requests
 import logging
 from collections import namedtuple
-from typing import Union, Optional
+from typing import Union, Optional, Callable
 from json import JSONDecodeError
 
 from pydispix.ratelimits import RateLimiter
@@ -82,6 +82,8 @@ class Client:
         params: Optional[dict] = None,
         parse_json: bool = True,
         ratelimit_after: bool = False,
+        task_after: Optional[Callable] = None,
+        repeat_on_ratelimit: bool = True,
         show_progress: bool = False,
     ) -> Union[bytes, dict]:
         """
@@ -93,36 +95,61 @@ class Client:
         was made. This is needed because with some requests we want the most recent data we
         can get, after waiting out the limit (for example with get_canvas), but with others
         where we want to make our request as soon as possible, and only then wait for rate limits.
+
+        You can also set `task_after` which is a callable function, that will be executed right
+        after the request is made done. (This is needed if a user needs to report that he finished
+        a set_pixel task to a church before waiting out the time limit). If this is used, you'll
+        probably also want to have `ratelimit_after` enabled, to wait out the rate limit after
+        the task with this `task_after` is sent.
+
+        If `repeat_on_ratelimit` is set, the task will be re-run 1 more time. This is the default
+        setting, since we can encounter initial rate limtis from the pixel API, and after we update
+        the rate_limiter and wait out the proper cooldown, we make the request again. If the 2nd
+        request fails too however, `RateLimitBreached` will be raised, to avoid infinite loops.
         """
-        while True:
-            if not ratelimit_after:
-                self.rate_limiter.wait(url, show_progress=show_progress)
-
+        if not ratelimit_after:
+            self.rate_limiter.wait(url, show_progress=show_progress)
+        try:
+            response = self.make_raw_request(method, url, data=data, params=params)
+        except RateLimitBreached as exc:
             try:
-                response = self.make_raw_request(method, url, data=data, params=params)
-            except RateLimitBreached as exc:
-                try:
-                    response_text = exc.response.json()
-                except JSONDecodeError:
-                    response_text = exc.response.content
-                # This can happen with first request when we're rate-limiting afterwards
-                # Or when 2 machines are using the same token. When this occurs we continue
-                # and make the request again.
-                logger.warning(f"Hit rate limit, repeating request ({response_text})")
+                response_text = exc.response.json()
+            except JSONDecodeError:
+                response_text = exc.response.content
+            # This can happen with first request when we're rate-limiting afterwards
+            # Or when 2 machines are using the same token. When this occurs we continue
+            # and make the request again.
+            logger.warning(f"Hit rate limit, repeating request ({response_text})")
 
-                # Wait for the rate limit if we're limiting afterwards
-                if ratelimit_after:
-                    self.rate_limiter.wait(url, show_progress=show_progress)
-
-                continue
-
+            # Wait for the rate limit if we're limiting afterwards
+            # we don't send the `task_after` here, because the request failed anyway
             if ratelimit_after:
                 self.rate_limiter.wait(url, show_progress=show_progress)
 
-            if parse_json:
-                return response.json()
+            if repeat_on_ratelimit:
+                return self.make_request(
+                    method, url,
+                    data=data, params=params,
+                    parse_json=parse_json,
+                    ratelimit_after=ratelimit_after,
+                    task_after=task_after,
+                    show_progress=show_progress,
+                    repeat_on_ratelimit=False
+                )
             else:
-                return response.content
+                raise exc
+
+        # Run the task as soon as we can, before waiting for any rate limitations
+        if task_after:
+            task_after()
+
+        if ratelimit_after:
+            self.rate_limiter.wait(url, show_progress=show_progress)
+
+        if parse_json:
+            return response.json()
+        else:
+            return response.content
 
     def resolve_endpoint(self, endpoint: str) -> str:
         """Resolve given `endpoint` to use the base_url"""
@@ -153,8 +180,16 @@ class Client:
         x: int, y: int,
         color: Union[int, str, tuple[int, int, int], Color],
         show_progress: bool = False,
+        task_after: Optional[Callable] = None
     ) -> str:
-        """Draw a pixel and return a message."""
+        """
+        Draw a pixel and return a message.
+
+        If you are reporting to some church, you may want to set
+        `task_after` to the completion request for your church.
+        This way, the task will be executed instantly, before
+        waiting for the rate limitation
+        """
         url = self.resolve_endpoint("set_pixel")
         data = self.make_request(
             'POST', url,
@@ -163,7 +198,9 @@ class Client:
                 'y': y,
                 'rgb': parse_color(color)
             },
-            show_progress=show_progress
+            show_progress=show_progress,
+            ratelimit_after=True,
+            task_after=task_after
         )
 
         logger.info('Success: {message}'.format(**data))
