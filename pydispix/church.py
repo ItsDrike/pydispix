@@ -48,5 +48,17 @@ class ChurchClient(Client):
         to override this to get it to work with your church's specific API.
         """
 
-    def run_task(self, church_task: ChurchTask, show_progress: bool = False):
+    def put_task_pixel(self, church_task: ChurchTask, show_progress: bool = False):
+        """Add the corresponding pixel from the church_task."""
         self.put_pixel(church_task.x, church_task.y, church_task.color, show_progress=show_progress)
+
+    def run_task(self, show_progress: bool = False):
+        """Obtain, run and submit a single task to the church."""
+        task = self.get_task()
+        self.put_task_pixel(task, show_progress=show_progress)
+        self.submit_task(task)
+
+    def run_tasks(self, show_progress: bool = False):
+        """Keep running church tasks forever."""
+        while True:
+            self.run_task(show_progress=show_progress)

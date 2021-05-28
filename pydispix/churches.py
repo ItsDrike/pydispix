@@ -11,6 +11,7 @@ RICK_CHURCH = "https://pixel-tasks.scoder12.repl.co/api"
 @dataclass
 class RickChurchTask(ChurchTask):
     project_title: str
+    start: float
 
 
 @dataclass
@@ -60,7 +61,13 @@ class RickChurchClient(ChurchClient):
 
     def submit_task(self, church_task: RickChurchTask, endpoint: str = "submit_task") -> dict:
         url = self.resolve_church_endpoint(endpoint)
-        body = {**church_task}
+        body = {
+            'project_title': church_task.project_title,
+            'start': church_task.start,
+            'x': church_task.x,
+            'y': church_task.y,
+            'color': church_task.color
+        }
         return self.make_request("POST", url, data=body)
 
 
