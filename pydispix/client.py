@@ -3,6 +3,7 @@ import requests
 import logging
 from collections import namedtuple
 from typing import Union, Optional
+from json import JSONDecodeError
 
 from pydispix.ratelimits import RateLimiter
 from pydispix.canvas import Canvas, Pixel
@@ -99,11 +100,15 @@ class Client:
 
             try:
                 response = self.make_raw_request(method, url, data=data, params=params)
-            except RateLimitBreached:
+            except RateLimitBreached as exc:
+                try:
+                    response_text = exc.response.json()
+                except JSONDecodeError:
+                    response_text = exc.response.content
                 # This can happen with first request when we're rate-limiting afterwards
                 # Or when 2 machines are using the same token. When this occurs we continue
                 # and make the request again.
-                logger.warning("Hit rate limit, repeating request")
+                logger.warning(f"Hit rate limit, repeating request ({response_text})")
 
                 # Wait for the rate limit if we're limiting afterwards
                 if ratelimit_after:
