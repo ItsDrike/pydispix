@@ -80,4 +80,4 @@ def handle_invalid_body(response: requests.HTTPError) -> PyDisPixError:
     if entry["loc"][1] in ("x", "y"):
         return OutOfBoundaries(entry["msg"])
 
-    raise RuntimeError("Unrecognized 422 exception, please report this issue in the pydispix repository")
+    raise requests.HTTPError("Unrecognized 422 exception, please report this issue in the pydispix repository", response=response)
