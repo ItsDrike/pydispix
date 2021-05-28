@@ -1,10 +1,13 @@
 from typing import Union
 from dataclasses import dataclass
 from abc import abstractmethod
+import logging
 
 from pydispix.client import Client
 from pydispix.color import Color
 from pydispix.utils import resolve_url_endpoint
+
+logger = logging.getLogger("pydispix")
 
 
 @dataclass
@@ -55,6 +58,7 @@ class ChurchClient(Client):
     def run_task(self, show_progress: bool = False):
         """Obtain, run and submit a single task to the church."""
         task = self.get_task()
+        logger.info(f"Running church task: {task}")
         self.put_task_pixel(task, show_progress=show_progress)
         self.submit_task(task)
 
