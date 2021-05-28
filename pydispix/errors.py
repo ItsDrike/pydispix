@@ -10,6 +10,7 @@ class PyDisPixError(Exception):
 
 
 class RateLimitBreached(PyDisPixError):
+    """Request failed due to rate limit breach."""
     def __init__(self, *args, response: requests.Response, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -33,6 +34,12 @@ class RateLimitBreached(PyDisPixError):
             s += f"\nexpected_wait_time={self.expected_wait_time}"
 
         return s
+
+
+class InvalidToken(PyDisPixError, requests.HTTPError):
+    """Invalid token used."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class CanvasFormatError(PyDisPixError):

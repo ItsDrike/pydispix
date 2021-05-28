@@ -7,7 +7,7 @@ from typing import Union, Optional
 from pydispix.ratelimits import RateLimiter
 from pydispix.canvas import Canvas, Pixel
 from pydispix.color import Color, parse_color
-from pydispix.errors import RateLimitBreached, handle_invalid_body
+from pydispix.errors import RateLimitBreached, InvalidToken, handle_invalid_body
 
 logger = logging.getLogger('pydispix')
 Dimensions = namedtuple('Dimensions', ('width', 'height'))
@@ -38,6 +38,7 @@ class Client:
         self, method: str, endpoint_url: str, *,
         data: Optional[dict] = None,
         params: Optional[dict] = None,
+        upade_rate_limits: bool = True,
     ) -> requests.Response:
         """
         This method is here purely to make an HTTP request and update the rate limiter.
@@ -50,7 +51,9 @@ class Client:
             params=params,
             headers=self.headers
         )
-        self.rate_limiter.update_from_headers(endpoint_url, response.headers)
+
+        if upade_rate_limits:
+            self.rate_limiter.update_from_headers(endpoint_url, response.headers)
 
         if response.status_code == 429:
             logger.debug(f"Request: {method} on {endpoint_url} {data=} {params=} has failed due to rate limitation.")
@@ -60,7 +63,7 @@ class Client:
             )
         if response.status_code == 401:
             logger.error("Request failed with 401 (Forbidden) code. This means your API token is most likely invalid.")
-            raise requests.HTTPError(f"Received code {response.status_code} - FORBIDDEN: Is your API token correct?")
+            raise InvalidToken("Received 401 - FORBIDDEN: Is your API token correct?", response=response)
 
         if response.status_code == 422:
             exc = handle_invalid_body(response)
