@@ -35,28 +35,28 @@ class Client:
         self.width, self.height = self.size = self.get_dimensions()
 
     def make_raw_request(
-        self, method: str, endpoint_url: str, *,
+        self, method: str, url: str, *,
         data: Optional[dict] = None,
         params: Optional[dict] = None,
-        upade_rate_limits: bool = True,
+        update_rate_limits: bool = True,
     ) -> requests.Response:
         """
         This method is here purely to make an HTTP request and update the rate limiter.
         Even though this will update the rate limtis, it will not wait for them.
         """
-        logger.debug(f"Request: {method} on {endpoint_url} {data=} {params=}.")
+        logger.debug(f"Request: {method} on {url} {data=} {params=}.")
         response = requests.request(
-            method, self.base_url + endpoint_url,
+            method, url,
             json=data,
             params=params,
             headers=self.headers
         )
 
-        if upade_rate_limits:
-            self.rate_limiter.update_from_headers(endpoint_url, response.headers)
+        if update_rate_limits:
+            self.rate_limiter.update_from_headers(url, response.headers)
 
         if response.status_code == 429:
-            logger.debug(f"Request: {method} on {endpoint_url} {data=} {params=} has failed due to rate limitation.")
+            logger.debug(f"Request: {method} on {url} {data=} {params=} has failed due to rate limitation.")
             raise RateLimitBreached(
                 "Request didn't succeed because it was made during a rate-limit phase.",
                 response=response
@@ -78,7 +78,7 @@ class Client:
     def make_request(
         self,
         method: str,
-        endpoint_url: str,
+        url: str,
         *,
         data: Optional[dict] = None,
         params: Optional[dict] = None,
@@ -87,7 +87,7 @@ class Client:
         show_progress: bool = False,
     ) -> Union[bytes, dict]:
         """
-        Make a `method` request to given `endpoint_url`, while respecting the API rate limits.
+        Make a `method` request to given `url`, while respecting the API rate limits.
         You can optionally pass JSON `data` and `parameters`.
         You can set `show_progress` to draw a progress bar while waiting for the rate limtis.
 
@@ -95,15 +95,13 @@ class Client:
         was made. This is needed because with some requests we want the most recent data we
         can get, after waiting out the limit (for example with get_canvas), but with others
         where we want to make our request as soon as possible, and only then wait for rate limits.
-        (for example with set_pixel, we don't know how the canvas may have changed by the
-        time we have finished waiting)
         """
         while True:
             if not ratelimit_after:
-                self.rate_limiter.wait(endpoint_url, show_progress=show_progress)
+                self.rate_limiter.wait(url, show_progress=show_progress)
 
             try:
-                response = self.make_raw_request(method, endpoint_url, data=data, params=params)
+                response = self.make_raw_request(method, url, data=data, params=params)
             except RateLimitBreached:
                 # This can happen with first request when we're rate-limiting afterwards
                 # Or when 2 machines are using the same token. When this occurs we continue
@@ -112,31 +110,44 @@ class Client:
 
                 # Wait for the rate limit if we're limiting afterwards
                 if ratelimit_after:
-                    self.rate_limiter.wait(endpoint_url, show_progress=show_progress)
+                    self.rate_limiter.wait(url, show_progress=show_progress)
 
                 continue
 
             if ratelimit_after:
-                self.rate_limiter.wait(endpoint_url, show_progress=show_progress)
+                self.rate_limiter.wait(url, show_progress=show_progress)
 
             if parse_json:
                 return response.json()
             else:
                 return response.content
 
+    def resolve_endpoint(self, endpoint: str) -> str:
+        """Resolve given `endpoint` to use the base_url"""
+        endpoint = endpoint.removeprefix("/")
+        if endpoint.startswith("https://") or endpoint.startswith("http://"):
+            if endpoint.startswith(self.base_url):
+                return endpoint
+            raise ValueError("`endpoint` referrs to unknown full url, that doesn't belong to the base url")
+        else:
+            return self.base_url + endpoint
+
     def get_dimensions(self) -> Dimensions:
         """Make a request to obtain the canvas dimensions"""
-        data = self.make_request("GET", "get_size")
+        url = self.resolve_endpoint("get_size")
+        data = self.make_request("GET", url)
         return Dimensions(width=data["width"], height=data["height"])
 
     def get_canvas(self, show_progress: bool = False) -> Canvas:
         """Fetch the whole canvas and return it in a `Canvas` object."""
-        data = self.make_request("GET", "get_pixels", parse_json=False, show_progress=show_progress)
+        url = self.resolve_endpoint("get_pixels")
+        data = self.make_request("GET", url, parse_json=False, show_progress=show_progress)
         return Canvas(self.size, data)
 
     def get_pixel(self, x: int, y: int, show_progress: bool = False) -> Pixel:
         """Fetch rgb data about a specific pixel"""
-        data = self.make_request("GET", "get_pixel", params={"x": x, "y": y}, show_progress=show_progress)
+        url = self.resolve_endpoint("get_pixel")
+        data = self.make_request("GET", url, params={"x": x, "y": y}, show_progress=show_progress)
         hex_color = data["rgb"]
         return Pixel.from_hex(hex_color)
 
@@ -147,18 +158,14 @@ class Client:
         show_progress: bool = False,
     ) -> str:
         """Draw a pixel and return a message."""
-        # Wait for ratelimits *after* making request, not before. This makes
-        # sense because we don't know how the canvas may have changed by the
-        # time we have finished waiting, whereas for GET endpoints, we want to
-        # return the information as soon as it is given.
+        url = self.resolve_endpoint("set_pixel")
         data = self.make_request(
-            'POST', 'set_pixel',
+            'POST', url,
             data={
                 'x': x,
                 'y': y,
                 'rgb': parse_color(color)
             },
-            ratelimit_after=True,
             show_progress=show_progress
         )
 
