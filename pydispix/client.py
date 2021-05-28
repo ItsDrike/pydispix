@@ -33,7 +33,6 @@ class Client:
             "User-Agent": "ItsDrike pydispix",
         }
         self.rate_limiter = RateLimiter()
-        self.width, self.height = self.size = self.get_dimensions()
 
     def make_raw_request(
         self, method: str, url: str, *,
@@ -77,10 +76,7 @@ class Client:
         return response
 
     def make_request(
-        self,
-        method: str,
-        url: str,
-        *,
+        self, method: str, url: str, *,
         data: Optional[dict] = None,
         params: Optional[dict] = None,
         parse_json: bool = True,
@@ -137,7 +133,8 @@ class Client:
         """Fetch the whole canvas and return it in a `Canvas` object."""
         url = self.resolve_endpoint("get_pixels")
         data = self.make_request("GET", url, parse_json=False, show_progress=show_progress)
-        return Canvas(self.size, data)
+        size = self.get_dimensions()
+        return Canvas(size, data)
 
     def get_pixel(self, x: int, y: int, show_progress: bool = False) -> Pixel:
         """Fetch rgb data about a specific pixel"""
