@@ -15,7 +15,7 @@ class RateLimitBreached(PyDisPixError):
         super().__init__(*args, **kwargs)
 
         # Get time limits from headers with RateLimitedEndpoint
-        temp_rate_limit = RateLimitedEndpoint()
+        temp_rate_limit = RateLimitedEndpoint(response.url)
         temp_rate_limit.update_from_headers(response.headers)
 
         self.requests_limit = temp_rate_limit.requests_limit
