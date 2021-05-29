@@ -74,6 +74,10 @@ class RickChurchClient(ChurchClient):
         repeat_delay: int = 5,
         repeat_on_ratelimit: bool = True,
     ) -> requests.Response:
+        """
+        Extend `run_task` to handle specific exceptions from the
+        church of rick.
+        """
         try:
             return super().run_task(
                 submit_endpoint=submit_endpoint,
@@ -103,37 +107,6 @@ class RickChurchClient(ChurchClient):
                 show_progress=show_progress,
                 repeat_on_ratelimit=repeat_on_ratelimit
             )
-        # except requests.HTTPError as exc:
-        #     # Handle church not accepting the request
-        #     # this could occur because the church's rate limit has expired,
-        #     # or because someone managed to overwrite the pixel we were setting
-        #     # before we submitted the task
-        #     if exc.response.status_code == 400:
-        #         try:
-        #             detail = exc.response.json()["detail"]
-        #         except (JSONDecodeError, KeyError):
-        #             # If the response isn't json decodeable or doesn't contain detail key,
-        #             # it isn't from rick church
-        #             raise exc
-        #         err_msg = (
-        #             "You did not complete this task properly, or it was fixed before "
-        #             "the server could verify it. You have not been credited for this task."
-        #         )
-        #         if detail != err_msg:
-        #             # If we didn't catch this error message, something else has ocurred
-        #             # or this wasn't an exception from the rick church, don't handle it
-        #             raise exc
-        #         # If this was exception from the church, re-run the whole `run_task` function,
-        #         # which obtains a new task and runs that one, this one has failed
-        #         logger.warn(
-        #             "Church task failed, got code 400. Someone probably managed to overwrite "
-        #             "this pixel before you submitted church request."
-        #         )
-        #         return self.run_task(
-        #             submit_endpoint=submit_endpoint,
-        #             show_progress=show_progress,
-        #             repeat_on_ratelimit=repeat_on_ratelimit
-        #         )
 
 
 class SQLiteChurchClient(ChurchClient):
