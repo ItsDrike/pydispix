@@ -23,7 +23,7 @@ canvas = client.get_canvas()
 # Show the canvas using PIL
 canvas.show()
 
-# Show the canvas using matplolib, this will include coordinates
+# Show the canvas using matplotlib, this will include coordinates
 canvas.mpl_show()
 
 # Save the canvas to a file
