@@ -11,21 +11,30 @@ class RateLimitedEndpoint:
         self.endpoint = endpoint
 
         self.requests_limit = None          # Total number of requests before reset time wait
+        self.requests_period = None         # Period we have for making `self.requests_limit` requests
         self.remaining_requests = 1         # Remaining number of requests before reset time wait
-        self.reset_time = 0                 # How much time to wait once we hit reset
+        self.reset_time = 0                 # How much time to wait on reset
         self.cooldown_time = 0              # Some endpoints force longer cooldown times
         self.default_delay = default_delay  # If no other limit is found, how long should we wait
         self.anti_spam_delay = 0            # This is hit when multiple tokens are used
 
     def update_from_headers(self, headers: CaseInsensitiveDict[str]):
-        # Use `max(0, x)` here since for whatever reason pixels API can return
-        # a negative time sometimes
-        self.remaining_requests = headers.get('requests-remaining', 1)
-        self.reset_time = max(0, float(headers.get('requests-reset', 0)))
-        self.cooldown_time = max(0, float(headers.get('cooldown-reset', 0)))
-        self.anti_spam_delay = max(0, float(headers.get('retry-after', 0)))
+        # Static values for given endpoint
         if "requests-limit" in headers:
-            self.requests_limit = headers["requests-limit"]
+            self.requests_limit = int(headers["requests-limit"])
+        if "requests-period" in headers:
+            self.requests_period = float(headers["requests-period"])
+
+        # Current values for given endpoint
+        self.remaining_requests = int(headers.get('requests-remaining', 1))
+        self.reset_time = float(headers.get('requests-reset', 0))
+        self.cooldown_time = float(headers.get('cooldown-reset', 0))
+        self.anti_spam_delay = float(headers.get('retry-after', 0))
+
+        logger.debug(
+            f"Rates updated for {self.endpoint}: {self.remaining_requests=}, {self.reset_time=}, "
+            f"{self.cooldown_time=}, {self.anti_spam_delay=}"
+        )
 
     def get_wait_time(self):
         if self.anti_spam_delay != 0:
@@ -61,7 +70,7 @@ class RateLimitedEndpoint:
             logger.warning(f"Sleeping for {self.anti_spam_delay}s, anti-spam cooldown triggered! ({self.endpoint})")
             return self.sleep(self.anti_spam_delay, show_progress=show_progress)
         if self.cooldown_time != 0:
-            logger.info(f"Sleeping {self.cooldown_time}s, on cooldown. ({self.endpoint})")
+            logger.warning(f"Sleeping {self.cooldown_time}s, cooldown trigerred! ({self.endpoint})")
             return self.sleep(self.cooldown_time, show_progress=show_progress)
         if self.remaining_requests == 0:
             logger.info(f"Sleeping {self.reset_time}s, on reset. ({self.endpoint})")
