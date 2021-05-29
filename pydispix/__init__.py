@@ -1,3 +1,4 @@
+from pydispix import churches  # noqa
 from pydispix.autodraw import AutoDrawer  # noqa
 from pydispix.canvas import Canvas, Pixel  # noqa
 from pydispix.church import ChurchClient  # noqa

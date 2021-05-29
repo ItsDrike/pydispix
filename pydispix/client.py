@@ -2,8 +2,7 @@ import os
 import requests
 import logging
 from collections import namedtuple
-from typing import Union, Optional
-from json import JSONDecodeError
+from typing import Callable, Union, Optional
 
 from pydispix.ratelimits import RateLimiter
 from pydispix.canvas import Canvas, Pixel
@@ -57,7 +56,7 @@ class Client:
             self.rate_limiter.update_from_headers(url, response.headers)
 
         if response.status_code == 429:
-            logger.debug(f"Request: {method} on {url} {data=} {params=} has failed due to rate limitation.")
+            logger.debug(f"Request failed (rate limitation): {method} on {url} {data=} {params=}")
             raise RateLimitBreached(
                 "Request didn't succeed because it was made during a rate-limit phase.",
                 response=response
@@ -80,70 +79,82 @@ class Client:
         self, method: str, url: str, *,
         data: Optional[dict] = None,
         params: Optional[dict] = None,
-        parse_json: bool = True,
         ratelimit_after: bool = False,
-        repeat_on_ratelimit: bool = True,
+        task_after: Optional[Callable] = None,
+        head_ratelimit_update: bool = False,
+        repeat_on_ratelimit: bool = False,
         show_progress: bool = False,
-    ) -> Union[bytes, dict]:
+    ) -> requests.Response:
         """
-        Make a `method` request to given `url`, while respecting the API rate limits.
-        You can optionally pass JSON `data` and `parameters`.
-        You can set `show_progress` to draw a progress bar while waiting for the rate limtis.
+        This method handles making a request on a rate-limited endpoint.
 
-        For some requests, you may want to wait for the rate limit timeout *after* the request
-        was made. This is needed because with some requests we want the most recent data we
-        can get, after waiting out the limit (for example with get_canvas), but with others
-        where we want to make our request as soon as possible, and only then wait for rate limits.
+        `ratelimit_after`: Wait for rate limits after making the request, this is handy
+        for some requests, which should be ran as soon as possible, and wait out the rate
+        limit after it was made.
 
-        If `repeat_on_ratelimit` is set, the task will be re-run 1 more time. This is the default
-        setting, since we can encounter initial rate limtis from the pixel API, and after we update
-        the rate_limiter and wait out the proper cooldown, we make the request again. If the 2nd
-        request fails too however, `RateLimitBreached` will be raised, to avoid infinite loops.
+        `task_after`: This is a function that will run after the request was made. This is
+        useful when reporting that some task was fullfilled to external API (like to a church)
+        where we can't afford to wait out the rate limit first. This is usually combined with
+        ratelimit_after`, since there's no point in using it if we wait out the rate limit first.
+        The result of this task will be stored in the response under `task_result` variable.
+        In case any exception would occur in this task, it will be handled and stored in
+        in the response under `task_exception` variable.
+
+        `head_ratelimit_update`: Some APIs allow sending HEAD type requests, which don't actually
+        trigger interfere with the API, and are here purely to obtain the rate limits, so that we
+        can wait it out before we make an actual request. This can only be used when `ratelimit_after`
+        isn't being used, since if it is, we'll obtain rate-limits from the original made request,
+        instead of the HEAD.
+
+        `repeat_on_ratelimit`: This can be used to repeat this request if request gives us
+        `RateLimitBreached` exception. This will re-run the whole function again one more time, but
+        if the second request fails too, `RateLimitBreached` will be raised anyway. (To avoid infinite
+        loops). This option can't be used with `ratelimit_after` since if we breached rate limit, we
+        have to wait it out, and we can't wait it out after the request we made has failed.
         """
+        if repeat_on_ratelimit and ratelimit_after:
+            raise ValueError(
+                "Can't combine `ratelimit_after` with `repeat_on_ratelimit` (If we breached rate-limit, "
+                "we have to wait it out, and that's impossible to do after a failed request)"
+            )
+
         if not ratelimit_after:
-            # pixels API can accept HEAD requests against a rate-limited endpoint
-            # which returns the rate limit info in it's headers, without interfering
-            # with the API. This allows us to wait out the current rate limit from
-            # initial request, without knowing the rate limit rates prior to it.
-            if url not in self.rate_limiter.rate_limits and url.startswith(self.base_url):
-                response = self.make_raw_request("HEAD", url)
-                self.rate_limiter.update_from_headers(url, response.headers)
+            if head_ratelimit_update:
+                self.make_raw_request("HEAD", url, update_rate_limits=True)
             self.rate_limiter.wait(url, show_progress=show_progress)
+
         try:
-            response = self.make_raw_request(method, url, data=data, params=params)
+            response = self.make_raw_request(
+                method, url,
+                data=data, params=params,
+                update_rate_limits=True
+            )
         except RateLimitBreached as exc:
-            try:
-                response_text = exc.response.json()
-            except JSONDecodeError:
-                response_text = exc.response.content
-            # This can happen with first request when we're rate-limiting afterwards
-            # Or when 2 machines are using the same token. When this occurs we continue
-            # and make the request again.
-            logger.warning(f"Hit rate limit, repeating request ({response_text})")
-
-            # Wait for the rate limit if we're limiting afterwards
-            # we don't send the `task_after` here, because the request failed anyway
-            if ratelimit_after:
-                self.rate_limiter.wait(url, show_progress=show_progress)
-
             if repeat_on_ratelimit:
+                logger.warning(f"Hit rate limit, repeating request ({exc.response.content})")
+                # There's no point in using `head_ratelimit_update` here, since the failed
+                # request has already updated the rate limits.
                 return self.make_request(
                     method, url,
                     data=data, params=params,
-                    parse_json=parse_json,
-                    show_progress=show_progress,
-                    repeat_on_ratelimit=False
+                    ratelimit_after=False,
+                    task_after=task_after, head_ratelimit_update=False,
+                    repeat_on_ratelimit=False, show_progress=show_progress
                 )
+            raise exc
+
+        if task_after:
+            try:
+                result = task_after()
+            except Exception as exc:
+                response.task_exception = exc
             else:
-                raise exc
+                response.task_result = result
 
         if ratelimit_after:
             self.rate_limiter.wait(url, show_progress=show_progress)
 
-        if parse_json:
-            return response.json()
-        else:
-            return response.content
+        return response
 
     def resolve_endpoint(self, endpoint: str) -> str:
         """Resolve given `endpoint` to use the base_url"""
@@ -152,20 +163,20 @@ class Client:
     def get_dimensions(self) -> Dimensions:
         """Make a request to obtain the canvas dimensions"""
         url = self.resolve_endpoint("get_size")
-        data = self.make_request("GET", url)
+        data = self.make_request("GET", url).json()
         return Dimensions(width=data["width"], height=data["height"])
 
     def get_canvas(self, show_progress: bool = False) -> Canvas:
         """Fetch the whole canvas and return it in a `Canvas` object."""
         url = self.resolve_endpoint("get_pixels")
-        data = self.make_request("GET", url, parse_json=False, show_progress=show_progress)
+        data = self.make_request("GET", url, show_progress=show_progress).content
         size = self.get_dimensions()
         return Canvas(size, data)
 
     def get_pixel(self, x: int, y: int, show_progress: bool = False) -> Pixel:
         """Fetch rgb data about a specific pixel"""
         url = self.resolve_endpoint("get_pixel")
-        data = self.make_request("GET", url, params={"x": x, "y": y}, show_progress=show_progress)
+        data = self.make_request("GET", url, params={"x": x, "y": y}, show_progress=show_progress).json()
         hex_color = data["rgb"]
         return Pixel.from_hex(hex_color)
 
@@ -191,8 +202,10 @@ class Client:
                 "y": y,
                 "rgb": parse_color(color)
             },
+            head_ratelimit_update=True,
             show_progress=show_progress,
         )
 
-        logger.info(f"Success: {data['message']}")
-        return data["message"]
+        msg = data.json()["message"]
+        logger.info(f"Success: {msg}")
+        return msg

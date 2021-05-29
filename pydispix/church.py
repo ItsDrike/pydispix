@@ -1,15 +1,16 @@
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
+from functools import partial
 from json.decoder import JSONDecodeError
-
-from pydispix.errors import RateLimitBreached
 from typing import Union
 
+import requests
+
 from pydispix.client import Client
-from pydispix.color import Color
+from pydispix.color import Color, parse_color
+from pydispix.errors import RateLimitBreached
 from pydispix.utils import resolve_url_endpoint
-from pydispix.color import parse_color
 
 logger = logging.getLogger("pydispix")
 
@@ -52,7 +53,7 @@ class ChurchClient(Client):
         """
 
     @abstractmethod
-    def submit_task(self, church_task: ChurchTask, endpoint: str = "submit_task") -> bool:
+    def submit_task(self, church_task: ChurchTask, endpoint: str = "submit_task") -> requests.Response:
         """
         Submit a task to the church, this is an abstract method, you'll need
         to override this to get it to work with your church's specific API.
@@ -79,48 +80,54 @@ class ChurchClient(Client):
         # of just using `make_requests` that handles the rate limits for us
         task = self.get_task(repeat_delay=repeat_delay)
         logger.info(f"Running church task: {task}")
+
+        # Manual set_pixel, with submit before waiting for rate limits
         url = self.resolve_endpoint("set_pixel")
         try:
-            response = self.make_raw_request(
+            response = self.make_request(
                 "POST", url,
                 data={
                     "x": task.x,
                     "y": task.y,
                     "rgb": parse_color(task.color)
-                }
+                },
+                ratelimit_after=True,
+                task_after=partial(self.submit_task, task, endpoint=submit_endpoint),
+                show_progress=show_progress
             )
         except RateLimitBreached as exc:
-            if not repeat_on_ratelimit:
-                raise exc
-
             try:
-                response_text = exc.response.json()
-                response_text = response_text["data"]
-            except JSONDecodeError:
+                response_text = exc.response.json()["data"]
+            except (JSONDecodeError, KeyError):
                 response_text = exc.response.content
-            except KeyError:
-                # If we can't get `data` key from obtained JSON,
-                # just use the pure JSON that's already set.
-                pass
-            logger.warning(f"Hit pixels api rate limit, request failed ({response_text})")
-            self.rate_limiter.wait(url, show_progress=show_progress)
-            # There is no point in trying to fullfil this request now, just
-            # rerunning and obtain a new request, the rate limit for set_pixel
-            # is quite big, and would violate the rate limits of the church API.
-            return self.run_task(
-                submit_endpoint, show_progress=show_progress,
-                repeat_on_ratelimit=False
-            )
-        data = response.json()
-        # Log successful pixel placement just like `put_pixel` would
-        logger.info(f"Success: {data['message']}")
 
-        # Submit task before waiting out the pixels API limit, which is quite long
-        # and will most likely lead to violations of the church API response time
-        # limit for the given task.
-        status = self.submit_task(task, endpoint=submit_endpoint)
-        self.rate_limiter.wait(url, show_progress=show_progress)
-        return status
+            # This can occur first time we run this, since we're handling
+            # rate limits after the request is made, `repeat_on_ratelimit`
+            # should always be `True` initially. We can then wait out the
+            # rate limit, and re-run the whole function with a new task,
+            # since the time limit for the completion of this one has most
+            # likely already expired.
+            if repeat_on_ratelimit:
+                logger.warning(f"Hit pixels api ratelimit: {response_text}, waiting it out and ignoring this task.")
+                self.rate_limiter.wait(url, show_progress=show_progress)
+                # Re-run the task only once, this rate breach should only occur
+                # on initial request, if it happens again, it shouldn't be handled
+                return self.run_task(
+                    submit_endpoint=submit_endpoint,
+                    show_progress=show_progress,
+                    repeat_delay=repeat_delay,
+                    repeat_on_ratelimit=False
+                )
+            raise exc
+
+        # Log success of manual set_pixel
+        pixel_api_msg = response.json()["message"]
+        logger.info(f"Success: {pixel_api_msg}")
+
+        # Return status of the submit task, or raise the exception that ocurred in it
+        if hasattr(response, "task_exception"):
+            raise response.task_exception
+        return response.task_result
 
     def run_tasks(
         self,

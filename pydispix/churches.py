@@ -40,10 +40,15 @@ class RickChurchClient(ChurchClient):
     ):
         super().__init__(pixel_api_token, church_token, base_church_url, *args, **kwargs)
 
-    def get_task(self, endpoint: str = "get_task", repeat_delay: int = 5) -> RickChurchTask:
-        url = self.resolve_church_endpoint(endpoint)
+    @property
+    def stats(self):
+        url = self.resolve_church_endpoint("user/stats")
+        return self.make_request("GET", url, params={"key": self.church_token}).json()
+
+    def get_task(self, repeat_delay: int = 5) -> RickChurchTask:
+        url = self.resolve_church_endpoint("get_task")
         while True:
-            response = self.make_request("GET", url, params={"key": self.church_token})
+            response = self.make_request("GET", url, params={"key": self.church_token}).json()
 
             if response["task"] is None:
                 logger.info(f"Church doesn't currently have any aviable tasks, waiting {repeat_delay}s")
@@ -51,7 +56,7 @@ class RickChurchClient(ChurchClient):
                 continue
             return RickChurchTask(**response["task"])
 
-    def submit_task(self, church_task: RickChurchTask, endpoint: str = "submit_task") -> dict:
+    def submit_task(self, church_task: RickChurchTask, endpoint: str = "submit_task") -> requests.Response:
         url = self.resolve_church_endpoint(endpoint)
         body = {
             'project_title': church_task.project_title,
@@ -66,15 +71,15 @@ class RickChurchClient(ChurchClient):
         self,
         submit_endpoint: str = "submit_task",
         show_progress: bool = False,
+        repeat_delay: int = 5,
         repeat_on_ratelimit: bool = True,
-        repeat_delay: int = 5
-    ):
+    ) -> requests.Response:
         try:
             return super().run_task(
                 submit_endpoint=submit_endpoint,
                 show_progress=show_progress,
+                repeat_delay=repeat_delay,
                 repeat_on_ratelimit=repeat_on_ratelimit,
-                repeat_delay=repeat_delay
             )
         except RateLimitBreached as exc:
             # If we take longer to submit a request to the church, it will
@@ -98,37 +103,37 @@ class RickChurchClient(ChurchClient):
                 show_progress=show_progress,
                 repeat_on_ratelimit=repeat_on_ratelimit
             )
-        except requests.HTTPError as exc:
-            # Handle church not accepting the request
-            # this could occur because the church's rate limit has expired,
-            # or because someone managed to overwrite the pixel we were setting
-            # before we submitted the task
-            if exc.response.status_code == 400:
-                try:
-                    detail = exc.response.json()["detail"]
-                except (JSONDecodeError, KeyError):
-                    # If the response isn't json decodeable or doesn't contain detail key,
-                    # it isn't from rick church
-                    raise exc
-                err_msg = (
-                    "You did not complete this task properly, or it was fixed before "
-                    "the server could verify it. You have not been credited for this task."
-                )
-                if detail != err_msg:
-                    # If we didn't catch this error message, something else has ocurred
-                    # or this wasn't an exception from the rick church, don't handle it
-                    raise exc
-                # If this was exception from the church, re-run the whole `run_task` function,
-                # which obtains a new task and runs that one, this one has failed
-                logger.warn(
-                    "Church task failed, got code 400. Someone probably managed to overwrite "
-                    "this pixel before you submitted church request."
-                )
-                return self.run_task(
-                    submit_endpoint=submit_endpoint,
-                    show_progress=show_progress,
-                    repeat_on_ratelimit=repeat_on_ratelimit
-                )
+        # except requests.HTTPError as exc:
+        #     # Handle church not accepting the request
+        #     # this could occur because the church's rate limit has expired,
+        #     # or because someone managed to overwrite the pixel we were setting
+        #     # before we submitted the task
+        #     if exc.response.status_code == 400:
+        #         try:
+        #             detail = exc.response.json()["detail"]
+        #         except (JSONDecodeError, KeyError):
+        #             # If the response isn't json decodeable or doesn't contain detail key,
+        #             # it isn't from rick church
+        #             raise exc
+        #         err_msg = (
+        #             "You did not complete this task properly, or it was fixed before "
+        #             "the server could verify it. You have not been credited for this task."
+        #         )
+        #         if detail != err_msg:
+        #             # If we didn't catch this error message, something else has ocurred
+        #             # or this wasn't an exception from the rick church, don't handle it
+        #             raise exc
+        #         # If this was exception from the church, re-run the whole `run_task` function,
+        #         # which obtains a new task and runs that one, this one has failed
+        #         logger.warn(
+        #             "Church task failed, got code 400. Someone probably managed to overwrite "
+        #             "this pixel before you submitted church request."
+        #         )
+        #         return self.run_task(
+        #             submit_endpoint=submit_endpoint,
+        #             show_progress=show_progress,
+        #             repeat_on_ratelimit=repeat_on_ratelimit
+        #         )
 
 
 class SQLiteChurchClient(ChurchClient):
@@ -159,7 +164,7 @@ class SQLiteChurchClient(ChurchClient):
             task = random.choice(response)
             return SQLiteChurchTask(**task)
 
-    def submit_task(self, church_task: SQLiteChurchTask, endpoint: str = "submit_task"):
+    def submit_task(self, church_task: SQLiteChurchTask, endpoint: str = "submit_task") -> requests.Response:
         url = self.resolve_church_endpoint(endpoint)
         body = {"task_id": church_task.id}
         return self.make_request("POST", url, data=body)
