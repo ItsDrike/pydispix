@@ -97,7 +97,7 @@ class ChurchClient(Client):
             )
         except RateLimitBreached as exc:
             try:
-                response_text = exc.response.json()["data"]
+                response_text = exc.response.json()["message"]
             except (JSONDecodeError, KeyError):
                 response_text = exc.response.content
 
