@@ -1,6 +1,7 @@
 import logging
 import random
 import re
+import time
 from dataclasses import dataclass
 from json.decoder import JSONDecodeError
 
@@ -39,10 +40,16 @@ class RickChurchClient(ChurchClient):
     ):
         super().__init__(pixel_api_token, church_token, base_church_url, *args, **kwargs)
 
-    def get_task(self, endpoint: str = "get_task") -> RickChurchTask:
+    def get_task(self, endpoint: str = "get_task", repeat_delay: int = 5) -> RickChurchTask:
         url = self.resolve_church_endpoint(endpoint)
-        response = self.make_request("GET", url, params={"key": self.church_token})
-        return RickChurchTask(**response["task"])
+        while True:
+            response = self.make_request("GET", url, params={"key": self.church_token})
+
+            if response["task"] is None:
+                # We didn't get any task, church's task pool is empty
+                time.sleep(repeat_delay)
+                continue
+            return RickChurchTask(**response["task"])
 
     def submit_task(self, church_task: RickChurchTask, endpoint: str = "submit_task") -> dict:
         url = self.resolve_church_endpoint(endpoint)
@@ -135,11 +142,20 @@ class SQLiteChurchClient(ChurchClient):
         church_token = None
         super().__init__(pixel_api_token, church_token, base_church_url, *args, **kwargs)
 
-    def get_task(self, endpoint: str = "tasks") -> SQLiteChurchTask:
+    def get_task(self, endpoint: str = "tasks", repeat_delay: int = 5) -> SQLiteChurchTask:
         url = self.resolve_church_endpoint(endpoint)
-        response = self.make_request("GET", url)
-        task = random.choice(response)
-        return SQLiteChurchTask(**task)
+        while True:
+            response = self.make_request("GET", url)
+
+            if len(response) == 0:
+                # We didn't receive any tasks, church's tasklist is empty
+                time.sleep(repeat_delay)
+                continue
+            # SQLite church returns a list of aviable tasks to complete, it doesn't assign
+            # specific tasks to members, since there is no unique API key. Best we can do is
+            # Therefore to pick a task randomly from this list
+            task = random.choice(response)
+            return SQLiteChurchTask(**task)
 
     def submit_task(self, church_task: SQLiteChurchTask, endpoint: str = "submit_task"):
         url = self.resolve_church_endpoint(endpoint)

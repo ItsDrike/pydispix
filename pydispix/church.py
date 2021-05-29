@@ -42,10 +42,13 @@ class ChurchClient(Client):
         return resolve_url_endpoint(self.base_church_url, endpoint)
 
     @abstractmethod
-    def get_task(self, endpoint: str = "get_task") -> ChurchTask:
+    def get_task(self, endpoint: str = "get_task", repeat_delay: int = 5) -> ChurchTask:
         """
         Get task from the church, this is an abstract method, you'll need
         to override this to get it to work with your church's specific API.
+
+        `repeat_delay` is the time we will wait for, if the church currently
+        doesn't have any aviable tasks for us.
         """
 
     @abstractmethod
