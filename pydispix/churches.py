@@ -85,7 +85,7 @@ class RickChurchClient(ChurchClient):
             # If we take longer to submit a request to the church, it will
             # result in RateLimitBreached
             try:
-                details = exc.response.json()["detail"]
+                details = exc.response.json()["message"]
             except (JSONDecodeError, KeyError):
                 # If response isn't json decodeable or doesn't contain a detail key,
                 # it isn't from rick church
