@@ -76,7 +76,7 @@ class ChurchClient(Client):
         task = self.get_task()
         logger.info(f"Running church task: {task}")
 
-        # Handle 403s by resetting the pixel, these happen when somebody
+        # Handle 403/400 by resetting the pixel, these happen when somebody
         # managed to overwrite the pixel we set before we informed the server
         # that we actually set it, it's quite rare, but it can happen.
         while True:
@@ -84,7 +84,7 @@ class ChurchClient(Client):
                 return self._put_and_submit(task, show_progress=show_progress)
             except requests.HTTPError as exc:
                 resp = exc.response
-                if resp.status_code == 403:
+                if resp.status_code == 403 or resp.status_code == 400:
                     try:
                         log_detail = resp.json()
                     except JSONDecodeError:
