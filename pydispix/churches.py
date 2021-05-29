@@ -1,6 +1,8 @@
+from json.decoder import JSONDecodeError
 import logging
 import random
 from dataclasses import dataclass
+import requests
 
 from pydispix.church import ChurchClient, ChurchTask
 
@@ -49,6 +51,45 @@ class RickChurchClient(ChurchClient):
             'color': church_task.color
         }
         return self.make_request("POST", url, data=body, params={"key": self.church_token})
+
+    def run_task(self, submit_endpoint: str, show_progress: bool, repeat_on_ratelimit: bool):
+        try:
+            return super().run_task(
+                submit_endpoint=submit_endpoint,
+                show_progress=show_progress,
+                repeat_on_ratelimit=repeat_on_ratelimit
+            )
+        except requests.HTTPError as exc:
+            # Handle church not accepting the request
+            # this could occur because the church's rate limit has expired,
+            # or because someone managed to overwrite the pixel we were setting
+            # before we submitted the task
+            if exc.response.status_code == 400:
+                try:
+                    detail = exc.response.json()["detail"]
+                except (JSONDecodeError, KeyError):
+                    # If the response isn't json decodable or doesn't contain detail key,
+                    # it isn't from rick church
+                    raise exc
+                err_msg = (
+                    "You did not complete this task properly, or it was fixed before "
+                    "the server could verify it. You have not been credited for this task."
+                )
+                if detail != err_msg:
+                    # If we didn't catch this error message, something else has occured
+                    # or this wasn't an exception from the rick church, don't handle it
+                    raise exc
+                # If this was exception from the church, re-run the whole `run_task` function,
+                # which obtains a new task and runs that one, this one has failed
+                logger.warn(
+                    "Church task failed, got code 400. Either you hit church's rate limit, "
+                    "or someone managed to overwrite this pixel before you submitted church request."
+                )
+                return self.run_task(
+                    submit_endpoint=submit_endpoint,
+                    show_progress=show_progress,
+                    repeat_on_ratelimit=repeat_on_ratelimit
+                )
 
 
 class SQLiteChurchClient(ChurchClient):
