@@ -102,6 +102,12 @@ class Client:
         request fails too however, `RateLimitBreached` will be raised, to avoid infinite loops.
         """
         if not ratelimit_after:
+            # pixels API can accept HEAD requests against a rate-limited endpoint
+            # which returns the rate limit info in it's headers, without interfering
+            # with the API.
+            if url not in self.rate_limiter.rate_limits and url.startswith(self.base_url):
+                response = self.make_raw_request("HEAD", url)
+                self.rate_limiter.update_from_headers(url, response.headers)
             self.rate_limiter.wait(url, show_progress=show_progress)
         try:
             response = self.make_raw_request(method, url, data=data, params=params)
