@@ -99,6 +99,34 @@ Guard delay is the delay between each full iteration of all pixels. We need to w
 looping without any changes is almost instant in python, and we don't want to put cpu through that
 stress for no reason
 
+## Churches
+
+Churches are groups of people collaborating on some image, or set of images on the canvas.
+It's basically a big botnet of people. Most popular church is currently the
+[Church Of Rick](https://pixel-tasks.scoder12.repl.co/). Churches provide it's members with
+tasks to fill certain pixels, and the members finish those tasks and report it back to the church.
+This is how you run a single task like this with Church of Rick:
+
+```py
+from pydispix.churches import RickChurchClient
+
+client = RickChurchClient(pixels_api_token, rick_church_api_token)
+client.run_task()
+```
+
+Church of SQLite is also supported, and they don't require an API key, it is free for everyone:
+
+```py
+from pydispix.churches import SQLiteChurchClient
+
+client = SQLiteChurchClient(pixels_api_token)
+client.run_task()
+```
+
+You can also implement your own church according to it's specific API requirements, if you're
+interested in doing this, check the [church.py](pydispix/church.py) and how the specific churches
+are implemented using it: [churches.py](pydispix/churches.py).
+
 ## Progress bars
 
 Every request that has rate limits can now display a progress bar while it's sleeping on cooldown:
