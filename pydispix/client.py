@@ -2,7 +2,7 @@ import os
 import requests
 import logging
 from collections import namedtuple
-from typing import Union, Optional, Callable
+from typing import Union, Optional
 from json import JSONDecodeError
 
 from pydispix.ratelimits import RateLimiter
@@ -82,7 +82,6 @@ class Client:
         params: Optional[dict] = None,
         parse_json: bool = True,
         ratelimit_after: bool = False,
-        task_after: Optional[Callable] = None,
         repeat_on_ratelimit: bool = True,
         show_progress: bool = False,
     ) -> Union[bytes, dict]:
@@ -104,7 +103,8 @@ class Client:
         if not ratelimit_after:
             # pixels API can accept HEAD requests against a rate-limited endpoint
             # which returns the rate limit info in it's headers, without interfering
-            # with the API.
+            # with the API. This allows us to wait out the current rate limit from
+            # initial request, without knowing the rate limit rates prior to it.
             if url not in self.rate_limiter.rate_limits and url.startswith(self.base_url):
                 response = self.make_raw_request("HEAD", url)
                 self.rate_limiter.update_from_headers(url, response.headers)
