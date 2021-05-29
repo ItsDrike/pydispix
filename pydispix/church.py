@@ -2,6 +2,7 @@ import logging
 from abc import abstractmethod
 from dataclasses import dataclass
 from json.decoder import JSONDecodeError
+
 from pydispix.errors import RateLimitBreached
 from typing import Union
 
@@ -100,7 +101,7 @@ class ChurchClient(Client):
             # There is no point in trying to fullfil this request now, just
             # rerunning and obtain a new request, the rate limit for set_pixel
             # is quite big, and would violate the rate limits of the church API.
-            return self.put_church_pixel(
+            return self.run_task(
                 submit_endpoint, show_progress=show_progress,
                 repeat_on_ratelimit=False
             )
