@@ -67,12 +67,14 @@ class RickChurchClient(ChurchClient):
         submit_endpoint: str = "submit_task",
         show_progress: bool = False,
         repeat_on_ratelimit: bool = True,
+        repeat_delay: int = 5
     ):
         try:
             return super().run_task(
                 submit_endpoint=submit_endpoint,
                 show_progress=show_progress,
-                repeat_on_ratelimit=repeat_on_ratelimit
+                repeat_on_ratelimit=repeat_on_ratelimit,
+                repeat_delay=repeat_delay
             )
         except RateLimitBreached as exc:
             # If we take longer to submit a request to the church, it will
