@@ -52,7 +52,12 @@ class RickChurchClient(ChurchClient):
         }
         return self.make_request("POST", url, data=body, params={"key": self.church_token})
 
-    def run_task(self, submit_endpoint: str, show_progress: bool, repeat_on_ratelimit: bool):
+    def run_task(
+        self,
+        submit_endpoint: str = "submit_task",
+        show_progress: bool = False,
+        repeat_on_ratelimit: bool = True,
+    ):
         try:
             return super().run_task(
                 submit_endpoint=submit_endpoint,
