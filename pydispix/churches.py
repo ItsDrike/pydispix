@@ -119,8 +119,8 @@ class RickChurchClient(ChurchClient):
                 # If this was exception from the church, re-run the whole `run_task` function,
                 # which obtains a new task and runs that one, this one has failed
                 logger.warn(
-                    "Church task failed, got code 400. Either you hit church's rate limit, "
-                    "or someone managed to overwrite this pixel before you submitted church request."
+                    "Church task failed, got code 400. Someone probably managed to overwrite "
+                    "this pixel before you submitted church request."
                 )
                 return self.run_task(
                     submit_endpoint=submit_endpoint,

@@ -99,7 +99,7 @@ class ChurchClient(Client):
                 # If we can't get `data` key from obtained JSON,
                 # just use the pure JSON that's already set.
                 pass
-            logger.warning(f"Hit rate limit, request failed ({response_text})")
+            logger.warning(f"Hit pixels api rate limit, request failed ({response_text})")
             self.rate_limiter.wait(url, show_progress=show_progress)
             # There is no point in trying to fullfil this request now, just
             # rerunning and obtain a new request, the rate limit for set_pixel
