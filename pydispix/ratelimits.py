@@ -25,11 +25,11 @@ class RateLimitedEndpoint:
         if "requests-limit" in headers:
             self.requests_limit = float(headers["requests-limit"])
 
-        if self.reset_time < 0:
+        if self.reset_time <= 0:
             self.reset_time = 0
-        if self.cooldown_time < 0:
+        if self.cooldown_time <= 0:
             self.cooldown_time = 0
-        if self.anti_spam_delay < 0:
+        if self.anti_spam_delay <= 0:
             self.anti_spam_delay = 0
 
     def get_wait_time(self):
