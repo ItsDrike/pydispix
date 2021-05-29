@@ -17,12 +17,12 @@ class RateLimitedEndpoint:
         self.anti_spam_delay = 0            # This is hit when multiple tokens are used
 
     def update_from_headers(self, headers: CaseInsensitiveDict[str]):
-        self.remaining_requests = int(headers.get('requests-remaining', 1))
-        self.reset_time = int(headers.get('requests-reset', 0))
-        self.cooldown_time = int(headers.get('cooldown-reset', 0))
-        self.anti_spam_delay = int(headers.get('retry-after', 0))
+        self.remaining_requests = float(headers.get('requests-remaining', 1))
+        self.reset_time = float(headers.get('requests-reset', 0))
+        self.cooldown_time = float(headers.get('cooldown-reset', 0))
+        self.anti_spam_delay = float(headers.get('retry-after', 0))
         if "requests-limit" in headers:
-            self.requests_limit = int(headers["requests-limit"])
+            self.requests_limit = float(headers["requests-limit"])
 
     def get_wait_time(self):
         if self.anti_spam_delay != 0:
