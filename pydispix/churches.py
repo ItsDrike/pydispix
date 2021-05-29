@@ -1,10 +1,13 @@
-from json.decoder import JSONDecodeError
 import logging
 import random
+import re
 from dataclasses import dataclass
+from json.decoder import JSONDecodeError
+
 import requests
 
 from pydispix.church import ChurchClient, ChurchTask
+from pydispix.errors import RateLimitBreached
 
 logger = logging.getLogger("pydispix")
 
@@ -64,6 +67,28 @@ class RickChurchClient(ChurchClient):
                 show_progress=show_progress,
                 repeat_on_ratelimit=repeat_on_ratelimit
             )
+        except RateLimitBreached as exc:
+            # If we take longer to submit a request to the church, it will
+            # result in RateLimitBreached
+            try:
+                details = exc.response.json()["detail"]
+            except (JSONDecodeError, KeyError):
+                # If response isn't json decodeable or doesn't contain a detail key,
+                # it isn't from rick church
+                raise exc
+            if not re.search(
+                r"You have not gotten a task yet or you took more than \d+ seconds to submit your task",
+                details
+            ):
+                # If we didn't catch this error message, something else has ocurred
+                # or this wasn't an exception from the rick church, don't handle it
+                raise exc
+            logger.warn("Church task failed, got rate limited: submitting task took too long")
+            return self.run_task(
+                submit_endpoint=submit_endpoint,
+                show_progress=show_progress,
+                repeat_on_ratelimit=repeat_on_ratelimit
+            )
         except requests.HTTPError as exc:
             # Handle church not accepting the request
             # this could occur because the church's rate limit has expired,
@@ -73,7 +98,7 @@ class RickChurchClient(ChurchClient):
                 try:
                     detail = exc.response.json()["detail"]
                 except (JSONDecodeError, KeyError):
-                    # If the response isn't json decodable or doesn't contain detail key,
+                    # If the response isn't json decodeable or doesn't contain detail key,
                     # it isn't from rick church
                     raise exc
                 err_msg = (
@@ -81,7 +106,7 @@ class RickChurchClient(ChurchClient):
                     "the server could verify it. You have not been credited for this task."
                 )
                 if detail != err_msg:
-                    # If we didn't catch this error message, something else has occured
+                    # If we didn't catch this error message, something else has ocurred
                     # or this wasn't an exception from the rick church, don't handle it
                     raise exc
                 # If this was exception from the church, re-run the whole `run_task` function,
