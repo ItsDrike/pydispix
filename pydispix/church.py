@@ -137,11 +137,8 @@ class ChurchClient(Client):
     ):
         """Keep running church tasks forever."""
         while True:
-            try:
-                self.run_task(
-                    submit_endpoint=submit_endpoint,
-                    show_progress=show_progress,
-                    repeat_delay=repeat_delay
-                )
-            except RateLimitBreached as exc:
-                logger.exception("Got rate limited, ignoring exception and moving to the next task", exc_info=exc)
+            self.run_task(
+                submit_endpoint=submit_endpoint,
+                show_progress=show_progress,
+                repeat_delay=repeat_delay
+            )
