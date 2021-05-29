@@ -90,7 +90,9 @@ class RickChurchClient(ChurchClient):
             'y': church_task.y,
             'color': church_task.color
         }
-        return self.make_request("POST", url, data=body, params={"key": self.church_token})
+        req = self.make_request("POST", url, data=body, params={"key": self.church_token})
+        logger.info(f"Task submitted to the church (tasks complete={self.personal_stats['goodTasks']})")
+        return req
 
     def run_task(
         self,
@@ -165,4 +167,6 @@ class SQLiteChurchClient(ChurchClient):
     def submit_task(self, church_task: SQLiteChurchTask, endpoint: str = "submit_task") -> requests.Response:
         url = self.resolve_church_endpoint(endpoint)
         body = {"task_id": church_task.id}
-        return self.make_request("POST", url, data=body)
+        req = self.make_request("POST", url, data=body)
+        logger.info("Task submitted to the church")
+        return req

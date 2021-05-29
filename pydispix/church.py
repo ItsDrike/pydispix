@@ -120,10 +120,6 @@ class ChurchClient(Client):
                 )
             raise exc
 
-        # Log success of manual set_pixel
-        pixel_api_msg = response.json()["message"]
-        logger.info(f"Success: {pixel_api_msg}")
-
         # Return status of the submit task, or raise the exception that ocurred in it
         if hasattr(response, "task_exception"):
             raise response.task_exception
