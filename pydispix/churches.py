@@ -46,7 +46,7 @@ class RickChurchClient(ChurchClient):
             response = self.make_request("GET", url, params={"key": self.church_token})
 
             if response["task"] is None:
-                # We didn't get any task, church's task pool is empty
+                logger.info(f"Church doesn't currently have any aviable tasks, waiting {repeat_delay}s")
                 time.sleep(repeat_delay)
                 continue
             return RickChurchTask(**response["task"])
@@ -148,7 +148,7 @@ class SQLiteChurchClient(ChurchClient):
             response = self.make_request("GET", url)
 
             if len(response) == 0:
-                # We didn't receive any tasks, church's tasklist is empty
+                logger.info(f"Church doesn't currently have any aviable tasks, waiting {repeat_delay}s")
                 time.sleep(repeat_delay)
                 continue
             # SQLite church returns a list of aviable tasks to complete, it doesn't assign
