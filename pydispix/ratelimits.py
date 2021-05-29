@@ -18,19 +18,14 @@ class RateLimitedEndpoint:
         self.anti_spam_delay = 0            # This is hit when multiple tokens are used
 
     def update_from_headers(self, headers: CaseInsensitiveDict[str]):
-        self.remaining_requests = float(headers.get('requests-remaining', 1))
-        self.reset_time = float(headers.get('requests-reset', 0))
-        self.cooldown_time = float(headers.get('cooldown-reset', 0))
-        self.anti_spam_delay = float(headers.get('retry-after', 0))
+        # Use `max(0, x)` here since for whatever reason pixels API can return
+        # a negative time sometimes
+        self.remaining_requests = 0, float(headers.get('requests-remaining', 1))
+        self.reset_time = max(0, float(headers.get('requests-reset', 0)))
+        self.cooldown_time = max(0, float(headers.get('cooldown-reset', 0)))
+        self.anti_spam_delay = max(0, float(headers.get('retry-after', 0)))
         if "requests-limit" in headers:
             self.requests_limit = float(headers["requests-limit"])
-
-        if self.reset_time <= 0:
-            self.reset_time = 0
-        if self.cooldown_time <= 0:
-            self.cooldown_time = 0
-        if self.anti_spam_delay <= 0:
-            self.anti_spam_delay = 0
 
     def get_wait_time(self):
         if self.anti_spam_delay != 0:
