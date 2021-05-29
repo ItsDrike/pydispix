@@ -1,14 +1,15 @@
 import sys
 import time
 import logging
-from collections import defaultdict
 from requests.models import CaseInsensitiveDict
 
 logger = logging.getLogger('pydispix')
 
 
 class RateLimitedEndpoint:
-    def __init__(self, default_delay: int = 0):
+    def __init__(self, endpoint: str, default_delay: int = 0):
+        self.endpoint = endpoint
+
         self.requests_limit = None          # Total number of requests before reset time wait
         self.remaining_requests = 1         # Remaining number of requests before reset time wait
         self.reset_time = 0                 # How much time to wait once we hit reset
@@ -23,6 +24,13 @@ class RateLimitedEndpoint:
         self.anti_spam_delay = float(headers.get('retry-after', 0))
         if "requests-limit" in headers:
             self.requests_limit = float(headers["requests-limit"])
+
+        if self.reset_time < 0:
+            self.reset_time = 0
+        if self.cooldown_time < 0:
+            self.cooldown_time = 0
+        if self.anti_spam_delay < 0:
+            self.anti_spam_delay = 0
 
     def get_wait_time(self):
         if self.anti_spam_delay != 0:
@@ -55,27 +63,29 @@ class RateLimitedEndpoint:
 
     def wait(self, *, show_progress: bool = False):
         if self.anti_spam_delay != 0:
-            logger.warning(f"Sleeping for {self.anti_spam_delay}s, anti-spam cooldown triggered!")
+            logger.warning(f"Sleeping for {self.anti_spam_delay}s, anti-spam cooldown triggered! ({self.endpoint})")
             return self.sleep(self.anti_spam_delay, show_progress=show_progress)
         if self.cooldown_time != 0:
-            logger.info(f"Sleeping {self.cooldown_time}s, on cooldown.")
+            logger.info(f"Sleeping {self.cooldown_time}s, on cooldown. ({self.endpoint})")
             return self.sleep(self.cooldown_time, show_progress=show_progress)
         if self.remaining_requests == 0:
-            logger.info(f"Sleeping {self.reset_time}s, on reset.")
+            logger.info(f"Sleeping {self.reset_time}s, on reset. ({self.endpoint})")
             return self.sleep(self.reset_time, show_progress=show_progress)
 
-        logger.debug(f"Sleeping default delay ({self.default_delay}), {self.remaining_requests} requests remaining.")
+        logger.debug(f"Sleeping default delay ({self.default_delay}), {self.remaining_requests} requests remaining. ({self.endpoint})")
         return self.sleep(self.default_delay, show_progress=show_progress)
 
 
 class RateLimiter:
     def __init__(self):
-        self.rate_limits = defaultdict(RateLimitedEndpoint)
+        self.rate_limits = {}
 
     def update_from_headers(self, endpoint: str, headers: CaseInsensitiveDict[str]):
+        self.rate_limits.setdefault(endpoint, RateLimitedEndpoint(endpoint))
         limiter = self.rate_limits[endpoint]
         limiter.update_from_headers(headers)
 
     def wait(self, endpoint: str, show_progress: bool = False):
+        self.rate_limits.setdefault(endpoint, RateLimitedEndpoint(endpoint))
         limiter = self.rate_limits[endpoint]
         limiter.wait(show_progress=show_progress)
