@@ -17,8 +17,16 @@ client = pydispix.Client('my-auth-token')
 # Let pydispix find your token from `TOKEN` environmental variable
 client = pydispix.Client()
 
-# Download and save the canvas.
+# Fetch the canvas
 canvas = client.get_canvas()
+
+# Show the canvas using PIL
+canvas.show()
+
+# Show the canvas using matplolib, this will include coordinates
+canvas.mpl_show()
+
+# Save the canvas to a file
 canvas.save('canvas.png')
 
 # And access pixels from it.
