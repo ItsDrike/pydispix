@@ -62,6 +62,7 @@ class ChurchClient(Client):
         self,
         submit_endpoint: str = "submit_task",
         show_progress: bool = False,
+        repeat_delay: int = 5,
         repeat_on_ratelimit: bool = True,
     ):
         """
@@ -70,11 +71,13 @@ class ChurchClient(Client):
         In case we hit initial rate limit from `set_pixel`, the rate limit is waited out,
         and we proceed with a new task, since the church's API time limit for that task
         has already likely expired.
+
+        `repeat_delay` is the delay to wait, if the church doesn't have any more aviable tasks.
         """
         # This can't just use the `set_pixel`, because we need to send submit message to the church
         # before we wait for the rate limits, this is also why we use `make_raw_request` instead
         # of just using `make_requests` that handles the rate limits for us
-        task = self.get_task()
+        task = self.get_task(repeat_delay=repeat_delay)
         logger.info(f"Running church task: {task}")
         url = self.resolve_endpoint("set_pixel")
         try:
@@ -119,10 +122,19 @@ class ChurchClient(Client):
         self.rate_limiter.wait(url, show_progress=show_progress)
         return status
 
-    def run_tasks(self, show_progress: bool = False):
+    def run_tasks(
+        self,
+        submit_endpoint: str = "submit_task",
+        show_progress: bool = False,
+        repeat_delay: int = 5
+    ):
         """Keep running church tasks forever."""
         while True:
             try:
-                self.run_task(show_progress=show_progress)
+                self.run_task(
+                    submit_endpoint=submit_endpoint,
+                    show_progress=show_progress,
+                    repeat_delay=repeat_delay
+                )
             except RateLimitBreached as exc:
                 logger.exception("Got rate limited, ignoring exception and moving to the next task", exc_info=exc)
