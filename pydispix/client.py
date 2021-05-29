@@ -11,8 +11,8 @@ from pydispix.color import Color, parse_color
 from pydispix.errors import RateLimitBreached, InvalidToken, handle_invalid_body
 from pydispix.utils import resolve_url_endpoint
 
-logger = logging.getLogger('pydispix')
-Dimensions = namedtuple('Dimensions', ('width', 'height'))
+logger = logging.getLogger("pydispix")
+Dimensions = namedtuple("Dimensions", ("width", "height"))
 
 
 class Client:
@@ -20,7 +20,7 @@ class Client:
     def __init__(self, token: Optional[str] = None, base_url: str = "https://pixels.pythondiscord.com/"):
         if token is None:
             try:
-                token = os.environ['TOKEN']
+                token = os.environ["TOKEN"]
             except KeyError:
                 raise RuntimeError("Unable to load token, 'TOKEN' environmental variable not found.")
 
@@ -96,12 +96,6 @@ class Client:
         can get, after waiting out the limit (for example with get_canvas), but with others
         where we want to make our request as soon as possible, and only then wait for rate limits.
 
-        You can also set `task_after` which is a callable function, that will be executed right
-        after the request is made done. (This is needed if a user needs to report that he finished
-        a set_pixel task to a church before waiting out the time limit). If this is used, you'll
-        probably also want to have `ratelimit_after` enabled, to wait out the rate limit after
-        the task with this `task_after` is sent.
-
         If `repeat_on_ratelimit` is set, the task will be re-run 1 more time. This is the default
         setting, since we can encounter initial rate limtis from the pixel API, and after we update
         the rate_limiter and wait out the proper cooldown, we make the request again. If the 2nd
@@ -131,17 +125,11 @@ class Client:
                     method, url,
                     data=data, params=params,
                     parse_json=parse_json,
-                    ratelimit_after=ratelimit_after,
-                    task_after=task_after,
                     show_progress=show_progress,
                     repeat_on_ratelimit=False
                 )
             else:
                 raise exc
-
-        # Run the task as soon as we can, before waiting for any rate limitations
-        if task_after:
-            task_after()
 
         if ratelimit_after:
             self.rate_limiter.wait(url, show_progress=show_progress)
@@ -180,7 +168,6 @@ class Client:
         x: int, y: int,
         color: Union[int, str, tuple[int, int, int], Color],
         show_progress: bool = False,
-        task_after: Optional[Callable] = None
     ) -> str:
         """
         Draw a pixel and return a message.
@@ -192,16 +179,14 @@ class Client:
         """
         url = self.resolve_endpoint("set_pixel")
         data = self.make_request(
-            'POST', url,
+            "POST", url,
             data={
-                'x': x,
-                'y': y,
-                'rgb': parse_color(color)
+                "x": x,
+                "y": y,
+                "rgb": parse_color(color)
             },
             show_progress=show_progress,
-            ratelimit_after=True,
-            task_after=task_after
         )
 
-        logger.info('Success: {message}'.format(**data))
-        return data['message']
+        logger.info(f"Success: {data['message']}")
+        return data["message"]

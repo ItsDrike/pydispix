@@ -48,7 +48,7 @@ class RickChurchClient(ChurchClient):
             'y': church_task.y,
             'color': church_task.color
         }
-        return self.make_request("POST", url, data=body, rams={"key": self.church_token})
+        return self.make_request("POST", url, data=body, params={"key": self.church_token})
 
 
 class SQLiteChurchClient(ChurchClient):

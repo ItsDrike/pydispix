@@ -1,15 +1,14 @@
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
-from functools import partial
 from json.decoder import JSONDecodeError
+from pydispix.errors import RateLimitBreached
 from typing import Union
-
-import requests
 
 from pydispix.client import Client
 from pydispix.color import Color
 from pydispix.utils import resolve_url_endpoint
+from pydispix.color import parse_color
 
 logger = logging.getLogger("pydispix")
 
@@ -55,42 +54,66 @@ class ChurchClient(Client):
         to override this to get it to work with your church's specific API.
         """
 
-    def _put_and_submit(self, church_task: ChurchTask, endpoint: str = "submit_task", show_progress: bool = False):
+    def run_task(
+        self,
+        submit_endpoint: str = "submit_task",
+        show_progress: bool = False,
+        repeat_on_ratelimit: bool = True,
+    ):
         """
-        Put new pixel on the canvas and send the `submit_task` request.
-        These are done together here because `put_pixel` waits for API
-        rate limits from Pixels API, while the church rate-limit on
-        task submitting might be lower than the api cooldown time.
-        Because of this, the submit task is ran as `task_after` to
-        `put_pixel` function.
-        """
-        submit_task = partial(self.submit_task, church_task, endpoint)
-        self.put_pixel(
-            church_task.x, church_task.y, church_task.color,
-            show_progress=show_progress,
-            task_after=submit_task
-        )
+        Obtain the Church Task, put new pixel on the canvas and send the `submit_task` request.
 
-    def run_task(self, show_progress: bool = False) -> bool:
-        """Obtain, run and submit a single task to the church."""
+        In case we hit initial rate limit from `set_pixel`, the rate limit is waited out,
+        and we proceed with a new task, since the church's API time limit for that task
+        has already likely expired.
+        """
+        # This can't just use the `set_pixel`, because we need to send submit message to the church
+        # before we wait for the rate limits, this is also why we use `make_raw_request` instead
+        # of just using `make_requests` that handles the rate limits for us
         task = self.get_task()
         logger.info(f"Running church task: {task}")
-
-        # Handle 403/400 by resetting the pixel, these happen when somebody
-        # managed to overwrite the pixel we set before we informed the server
-        # that we actually set it, it's quite rare, but it can happen.
-        while True:
-            try:
-                return self._put_and_submit(task, show_progress=show_progress)
-            except requests.HTTPError as exc:
-                resp = exc.response
-                if resp.status_code == 403 or resp.status_code == 400:
-                    try:
-                        log_detail = resp.json()
-                    except JSONDecodeError:
-                        raise exc
-                    logger.warning(f"Repeating task, got 403: {log_detail}")
+        url = self.resolve_endpoint("set_pixel")
+        try:
+            response = self.make_raw_request(
+                "POST", url,
+                data={
+                    "x": task.x,
+                    "y": task.y,
+                    "rgb": parse_color(task.color)
+                }
+            )
+        except RateLimitBreached as exc:
+            if not repeat_on_ratelimit:
                 raise exc
+
+            try:
+                response_text = exc.response.json()
+                response_text = response_text["data"]
+            except JSONDecodeError:
+                response_text = exc.response.content
+            except KeyError:
+                # If we can't get `data` key from obtained JSON,
+                # just use the pure JSON that's already set.
+                pass
+            logger.warning(f"Hit rate limit, request failed ({response_text})")
+            self.rate_limiter.wait(url, show_progress=show_progress)
+            # There is no point in trying to fullfil this request now, just
+            # rerunning and obtain a new request, the rate limit for set_pixel
+            # is quite big, and would violate the rate limits of the church API.
+            return self.put_church_pixel(
+                submit_endpoint, show_progress=show_progress,
+                repeat_on_ratelimit=False
+            )
+        data = response.json()
+        # Log successful pixel placement just like `put_pixel` would
+        logger.info(f"Success: {data['message']}")
+
+        # Submit task before waiting out the pixels API limit, which is quite long
+        # and will most likely lead to violations of the church API response time
+        # limit for the given task.
+        status = self.submit_task(task, endpoint=submit_endpoint)
+        self.rate_limiter.wait(url, show_progress=show_progress)
+        return status
 
     def run_tasks(self, show_progress: bool = False):
         """Keep running church tasks forever."""
