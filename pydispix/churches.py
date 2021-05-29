@@ -7,7 +7,7 @@ from pydispix.church import ChurchClient, ChurchTask
 
 logger = logging.getLogger("pydispix")
 
-SQLITE_CHURCH = "decorator-factory.su"
+SQLITE_CHURCH = "https://decorator-factory.su"
 RICK_CHURCH = "https://pixel-tasks.scoder12.repl.co/api"
 
 
@@ -93,8 +93,7 @@ class SQLiteChurchClient(ChurchClient):
     def get_task(self, endpoint: str = "tasks") -> SQLiteChurchTask:
         url = self.resolve_church_endpoint(endpoint)
         response = self.make_request("GET", url)
-        task_id = random.choice(list(response.keys()))
-        task = response[task_id]
+        task = random.choice(response)
         return SQLiteChurchTask(**task)
 
     def submit_task(self, church_task: SQLiteChurchTask, endpoint: str = "submit_task"):
