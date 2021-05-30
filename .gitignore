@@ -37,8 +37,5 @@ ENV/
 # Personal TODO files
 TODO
 
-# Pipenv lockfile
-Pipfile.lock
-
 # Ignore environmental variables
 .env
