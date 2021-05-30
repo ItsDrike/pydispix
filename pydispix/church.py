@@ -101,7 +101,7 @@ class ChurchClient(Client):
                     "rgb": parse_color(task.color)
                 },
                 ratelimit_after=True,
-                # TODO: Fix this, submit_task is coroutine.
+                # TODO: Fix this, `task_after` must take synchronous func, this should work, but it isn't ideal
                 task_after=partial(self.submit_task, task, endpoint=submit_endpoint),
                 show_progress=show_progress
             )
