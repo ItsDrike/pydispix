@@ -1,6 +1,7 @@
+import logging
 import sys
 import time
-import logging
+
 from requests.models import CaseInsensitiveDict
 
 logger = logging.getLogger('pydispix')
@@ -59,7 +60,7 @@ class RateLimitedEndpoint:
         sys.stdout.flush()
         sys.stdout.write("\b" * (toolbar_width + 1))  # return to start of line, after '['
 
-        for i in range(toolbar_width):
+        for _ in range(toolbar_width):
             time.sleep(seconds / toolbar_width)
             sys.stdout.write("#")
             sys.stdout.flush()

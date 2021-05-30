@@ -1,8 +1,8 @@
 
 from typing import Tuple
 
-import matplotlib.pyplot as plt
 import PIL.Image
+import matplotlib.pyplot as plt
 
 from pydispix.errors import CanvasFormatError
 
