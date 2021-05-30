@@ -1,5 +1,10 @@
 # PyDisPix
 
+
+[![made-with-python](https://img.shields.io/badge/Made%20with-Python%203.8+-ffe900.svg?longCache=true&style=flat-square&colorB=00a1ff&logo=python&logoColor=88889e)](https://www.python.org/)
+[![MIT](https://img.shields.io/badge/Licensed%20under-MIT-red.svg?style=flat-square)](./LICENSE)
+[![Linting check](https://github.com/ItsDrike/pydispix/actions/workflows/lint.yml/badge.svg)](https://github.com/ItsDrike/pydispix/actions/workflows/lint.yml)
+
 A simple wrapper around [Python Discord Pixels](https://pixels.pythondiscord.com).
 
 Requires Python 3.8+ (3.x where x >= 8).
