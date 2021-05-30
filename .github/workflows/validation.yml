@@ -1,4 +1,4 @@
-name: Linting & Type
+name: Vaildation
 
 on:
   push:
@@ -40,14 +40,6 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: '3.8'
-
-      - name: Setup Node.js (for pyright)
-        uses: actions/setup-node@v1
-        with:
-          node-version: "12"
-
-      - name: Install pyright with npm
-        run: npm install -g pyright
 
       # Cache python dependencies
       # the key is a composite of multiple values which when changed,
@@ -93,4 +85,9 @@ jobs:
         [flake8] %(code)s: %(text)s'"
 
       - name: Run pyright type checking
-        run: pipenv run pyright
+        uses: jakebailey/pyright-action@v1
+        with:
+          version: 1.1.135 # Optional
+        inputs:
+          venv-path:
+          description: ${{ env.PYTHONUSERBASE }}
