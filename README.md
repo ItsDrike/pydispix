@@ -159,6 +159,7 @@ while True:
         print(f"Exception ocurred: {exc} (#{exception_amt})")
         with open(f"exception{exception_amt}.pickle", "wb") as f:
             pickle.dump(exc, f)
+        exception_amt += 1
 ```
 
 There is still exception handling here, but it shouldn't capture any, it's only here since you'll
