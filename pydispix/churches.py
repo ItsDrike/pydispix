@@ -70,7 +70,7 @@ class RickChurchClient(ChurchClient):
         url = self.resolve_church_endpoint("projects/stats")
         return self.make_request("GET", url).json()
 
-    def get_task(self, repeat_delay: int = 5) -> RickChurchTask:
+    def get_task(self, repeat_delay: int = 2) -> RickChurchTask:
         url = self.resolve_church_endpoint("get_task")
         while True:
             response = self.make_request("GET", url, params={"key": self.church_token}).json()
@@ -169,7 +169,7 @@ class SQLiteChurchClient(ChurchClient):
         church_token = None
         super().__init__(pixel_api_token, church_token, base_church_url, *args, **kwargs)
 
-    def get_task(self, endpoint: str = "tasks", repeat_delay: int = 5) -> SQLiteChurchTask:
+    def get_task(self, endpoint: str = "tasks", repeat_delay: int = 2) -> SQLiteChurchTask:
         url = self.resolve_church_endpoint(endpoint)
         while True:
             response = self.make_request("GET", url)
