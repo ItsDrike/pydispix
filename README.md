@@ -166,13 +166,15 @@ likely not be there to monitor the process all the time, so even in the rare cas
 were to occur, the program will keep running and the exception will stored with pickle.
 
 If you see that this happened (if you find `exceptionX.pickle` files in your working directory),
-load the pickled exception and examine what exactly happened
+load the pickled exception and examine what exactly happened. Upload the traceback with the issue.
 
 ```py
 import pickle
 
 with open("exception0.pickle", "rb") as f:
   exc = pickle.load(f)
+
+raise exc
 ```
 
 **Important: do not upload the pickle file anywhere, it contains the request, which includes your
