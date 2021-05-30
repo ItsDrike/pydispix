@@ -61,9 +61,10 @@ class Canvas:
         if expected_length != actual_length:
             raise CanvasFormatError(f"Incorrect size ({size}), expected {expected_length} bytes, got {actual_length} bytes")
 
-        pixels = []
-        for start_idx in range(0, len(data), 3):
-            pixels.append(Pixel(*data[start_idx:start_idx + 3]))
+        pixels = [
+            Pixel(*data[start_idx:start_idx + 3])
+            for start_idx in range(0, len(data), 3)
+        ]
 
         self.grid = [
             pixels[row * self.width:(row + 1) * self.width]
