@@ -1,18 +1,16 @@
 import logging
 import os
-from collections import namedtuple
-from typing import Callable, Optional, Tuple, Union
+from typing import Callable, Optional
 
 import requests
 
-from pydispix.canvas import Canvas, Pixel
-from pydispix.color import Color, parse_color
+from pydispix.canvas import Canvas, Dimensions, Pixel
+from pydispix.color import ResolvableColor, parse_color
 from pydispix.errors import InvalidToken, RateLimitBreached, handle_invalid_body
 from pydispix.ratelimits import RateLimiter
 from pydispix.utils import resolve_url_endpoint
 
 logger = logging.getLogger("pydispix")
-Dimensions = namedtuple("Dimensions", ("width", "height"))
 
 
 class Client:
@@ -148,9 +146,9 @@ class Client:
             try:
                 result = task_after()
             except Exception as exc:
-                response.task_exception = exc
+                response.task_exception = exc  # type: ignore - type is unknown, because it's a new property we're adding
             else:
-                response.task_result = result
+                response.task_result = result  # type: ignore - type is unknown, because it's a new property we're adding
 
         if ratelimit_after:
             self.rate_limiter.wait(url, show_progress=show_progress)
@@ -184,7 +182,7 @@ class Client:
     def put_pixel(
         self,
         x: int, y: int,
-        color: Union[int, str, Tuple[int, int, int], Color],
+        color: ResolvableColor,
         show_progress: bool = False,
     ) -> str:
         """

@@ -61,7 +61,8 @@ class RickChurchClient(ChurchClient):
             'color': church_task.color
         }
         req = self.make_request("POST", url, data=body, params={"key": self.church_token})
-        logger.info(f"Task submitted to the church (tasks complete={self.personal_stats['goodTasks']})")
+        completed_tasks = self.get_personal_stats()["goodTasks"]
+        logger.info(f"Task submitted to the church (tasks complete={completed_tasks}")
         return req
 
     def _handle_church_task_errors(self, exception: Exception) -> None:
@@ -71,7 +72,7 @@ class RickChurchClient(ChurchClient):
         """
         if isinstance(exception, RateLimitBreached):
             try:
-                detail = get_response_result(exception, "detail")
+                detail: str = get_response_result(exception, "detail", error_on_fail=True)  # type: ignore
             except (UnicodeDecodeError, JSONDecodeError, KeyError):
                 # If we can't get the detail, this isn't the exception we're looking for
                 return super()._handle_church_task_errors(exception)
@@ -88,7 +89,7 @@ class RickChurchClient(ChurchClient):
             logger.warn(f"Church task failed, task disassigned, submitting took over {match.groups()[0]} seconds")
         elif isinstance(exception, requests.HTTPError):
             try:
-                detail = get_response_result(exception, "detail")
+                detail: str = get_response_result(exception, "detail", error_on_fail=True)  # type: ignore - if it's not str, we handle it
             except (UnicodeDecodeError, JSONDecodeError, KeyError):
                 # If we can't get the detail, this isn't the exception we're looking for
                 return super()._handle_church_task_errors(exception)
@@ -161,13 +162,13 @@ class SQLiteChurchClient(ChurchClient):
             **kwargs
     ):
         # SQLite Church API is open for everyone, it doesn't need a token
-        church_token = None
+        church_token = ""
         super().__init__(pixel_api_token, church_token, base_church_url, *args, **kwargs)
 
     def get_task(self, endpoint: str = "tasks", repeat_delay: int = 2) -> SQLiteChurchTask:
         url = self.resolve_church_endpoint(endpoint)
         while True:
-            response = self.make_request("GET", url)
+            response = self.make_request("GET", url).json()
 
             if len(response) == 0:
                 logger.info(f"Church doesn't currently have any aviable tasks, waiting {repeat_delay}s")

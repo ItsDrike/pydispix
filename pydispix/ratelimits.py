@@ -1,6 +1,7 @@
 import logging
 import sys
 import time
+from typing import Union
 
 from requests.models import CaseInsensitiveDict
 
@@ -47,7 +48,7 @@ class RateLimitedEndpoint:
 
         return self.default_delay
 
-    def sleep(self, seconds: int, *, show_progress: bool = False):
+    def sleep(self, seconds: Union[int, float], *, show_progress: bool = False):
         # Progress bars shouldn't appear if we're waiting less than 5 seconds
         # it tends to be spammy and doesn't really provide much value
         if not show_progress or seconds < 5:

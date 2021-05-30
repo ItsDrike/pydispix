@@ -64,10 +64,11 @@ class OutOfBoundaries(PyDisPixError):
     """Status code 422 - tried to draw a pixel outside of the canvas"""
 
 
-def handle_invalid_body(response: requests.HTTPError) -> PyDisPixError:
+def handle_invalid_body(response: requests.Response) -> Union[PyDisPixError, requests.HTTPError]:
     """
-    Invalid body can mean many things, this analyzed given response
-    and returns appropriate exception for it.
+    Handle 442 (invalid body) error code. This code can mean many things,
+    this function analyzes what exactly does the 442 refer to, and returns
+    an appropriate exception for it.
     """
     if response.status_code != 422:
         raise ValueError("Invalid Body response must have 422 HTTP code.")
@@ -85,17 +86,13 @@ def handle_invalid_body(response: requests.HTTPError) -> PyDisPixError:
     raise requests.HTTPError("Unrecognized 422 exception, please report this issue in the pydispix repository", response=response)
 
 
-def get_response_result(exception: Exception, key: Optional[str] = None, error_on_fail: bool = False) -> Union[str, bytes, dict, list]:
+def get_response_result(
+    exception: Union[requests.HTTPError, RateLimitBreached],
+    key: Optional[str] = None,
+    error_on_fail: bool = False
+) -> Union[str, dict, list]:
     if not hasattr(exception, "response"):
         raise ValueError("This exception doesn't have a `response` attribute.")
-
-    try:
-        response = exception.response.content.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        if error_on_fail:
-            raise exc
-        # Return the raw bytes, utf-8 conversion failed
-        return exception.response.content
 
     try:
         response = exception.response.json()
@@ -103,7 +100,8 @@ def get_response_result(exception: Exception, key: Optional[str] = None, error_o
         if error_on_fail:
             raise exc
         # Return the `content` message, this isn't JSON docodeable
-        return response
+        # If we can't decode to str text, don't bother with bytes, just raise `UnicodeDecodeError`
+        return exception.response.content.decode("utf-8")
 
     if key is not None:
         try:

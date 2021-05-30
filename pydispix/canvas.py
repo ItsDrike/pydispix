@@ -1,10 +1,14 @@
 
-from typing import Tuple
+from collections import namedtuple
+from typing import Tuple, Union
 
 import PIL.Image
 import matplotlib.pyplot as plt
 
 from pydispix.errors import CanvasFormatError
+
+Dimensions = namedtuple("Dimensions", ("width", "height"))
+SizeType = Union[Dimensions, Tuple[int, int]]
 
 
 class Pixel:
@@ -54,7 +58,8 @@ class Pixel:
 
 class Canvas:
     """container for all the pixels on a canvas."""
-    def __init__(self, size: Tuple[int, int], data: bytes):
+
+    def __init__(self, size: SizeType, data: bytes):
         """Parse the raw canvas data."""
         self.width, self.height = size
 
@@ -73,9 +78,9 @@ class Canvas:
             for row in range(self.height)
         ]
         self.raw = data
-        self.image = PIL.Image.frombytes('RGB', size, data)
+        self.image = PIL.Image.frombytes('RGB', (self.width, self.height), data)
 
-    def __getitem__(self, xy: Tuple[int, int]):
+    def __getitem__(self, xy: SizeType):
         """Get a pixel by coordinates."""
         x, y = xy
         return self.grid[y][x]

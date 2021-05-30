@@ -127,8 +127,8 @@ class ChurchClient(Client):
 
         # Return status of the submit task, or raise the exception that ocurred in it
         if hasattr(response, "task_exception"):
-            raise response.task_exception
-        return response.task_result
+            raise response.task_exception  # type: ignore - since we assigned a task, this will be set by make_request
+        return response.task_result  # type: ignore - since we assigned a task, this will be set by make_request
 
     def run_tasks(
         self,

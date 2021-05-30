@@ -24,7 +24,10 @@ class Color(enum.Enum):
     DISCORD_BLACK = '23272A'
 
 
-def parse_color(value: Union[int, str, Tuple[int, int, int], Color]) -> str:
+ResolvableColor = Union[int, str, Tuple[int, int, int], Color, Pixel]
+
+
+def parse_color(value: ResolvableColor) -> str:
     """Parse a colour to a hex string.
     Accepts integers, strings and instances of the Colour enum.
     """
@@ -41,7 +44,7 @@ def parse_color(value: Union[int, str, Tuple[int, int, int], Color]) -> str:
         return value.value
     elif isinstance(value, Pixel):
         # Remove leading "#".
-        return str(value).removeprefix("#")
+        return str(value)[1:]
     elif isinstance(value, tuple):
         if len(value) == 3:
             for col_byte in value:
