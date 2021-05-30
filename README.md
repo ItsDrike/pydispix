@@ -4,7 +4,7 @@ A simple wrapper around [Python Discord Pixels](https://pixels.pythondiscord.com
 
 Requires Python 3.8+ (3.x where x >= 8).
 
-Requires `requests`, `pillow` and `matplotlib` from pip.
+Requires pip dependencies listed in [`Pipfile`](Pipfile).
 
 ## Example
 
@@ -163,7 +163,7 @@ while True:
 ```
 
 There is still exception handling here, but it shouldn't capture any, it's only here since you'll
-likely not be there to monitor the process all the time, so even in the rare case that something 
+likely not be there to monitor the process all the time, so even in the rare case that something
 were to occur, the program will keep running and the exception will stored with pickle.
 
 If you see that this happened (if you find `exceptionX.pickle` files in your working directory),
