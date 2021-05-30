@@ -10,6 +10,16 @@ matplotlib = "~=3.4.2"
 colorama = "~=0.4.4"
 
 [dev-packages]
+autopep8 = "*"
+flake8 = "*"
+flake8-bugbear = "*"
+flake8-import-order = "*"
+ipython = "*"
+pre-commit = "*"
 
 [requires]
 python_version = "3.8"
+
+[scripts]
+precommit = "pre-commit install"
+lint = "pre-commit run --all-files"
