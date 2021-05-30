@@ -7,6 +7,7 @@ import PIL.Image
 
 from pydispix.canvas import Pixel, Canvas
 from pydispix.client import Client
+from pydispix.errors import OutOfBoundaries
 
 
 logger = logging.getLogger('pydispix')
@@ -30,6 +31,12 @@ class AutoDrawer:
         # Bottom right coords.
         self.x1 = x + len(self.grid[0])
         self.y1 = y + len(self.grid)
+
+        # Make sure we're within canvas boundaries
+        canvas_width, canvas_height = canvas_size = self.client.get_dimensions()
+        image_width, image_height = image_size = len(self.grid[0]), len(self.grid)
+        if image_width > canvas_width or image_height > canvas_height:
+            raise OutOfBoundaries(f"Can't draw picture bigger than the canvas ({image_size} > {canvas_size})")
 
     @classmethod
     def load_image(

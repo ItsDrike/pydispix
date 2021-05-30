@@ -1,29 +1,40 @@
 import asyncio
 import logging
 import sys
-from collections import defaultdict
-import requests
 from requests.models import CaseInsensitiveDict
 
 logger = logging.getLogger('pydispix')
 
 
 class RateLimitedEndpoint:
-    def __init__(self, default_delay: int = 0):
+    def __init__(self, endpoint: str, default_delay: int = 0):
+        self.endpoint = endpoint
+
         self.requests_limit = None          # Total number of requests before reset time wait
+        self.requests_period = None         # Period we have for making `self.requests_limit` requests
         self.remaining_requests = 1         # Remaining number of requests before reset time wait
-        self.reset_time = 0                 # How much time to wait once we hit reset
+        self.reset_time = 0                 # How much time to wait on reset
         self.cooldown_time = 0              # Some endpoints force longer cooldown times
         self.default_delay = default_delay  # If no other limit is found, how long should we wait
         self.anti_spam_delay = 0            # This is hit when multiple tokens are used
 
     def update_from_headers(self, headers: CaseInsensitiveDict[str]):
-        self.remaining_requests = int(headers.get('requests-remaining', 1))
-        self.reset_time = int(headers.get('requests-reset', 0))
-        self.cooldown_time = int(headers.get('cooldown-reset', 0))
-        self.anti_spam_delay = int(headers.get('retry-after', 0))
+        # Static values for given endpoint
         if "requests-limit" in headers:
             self.requests_limit = int(headers["requests-limit"])
+        if "requests-period" in headers:
+            self.requests_period = float(headers["requests-period"])
+
+        # Current values for given endpoint
+        self.remaining_requests = int(headers.get('requests-remaining', 1))
+        self.reset_time = float(headers.get('requests-reset', 0))
+        self.cooldown_time = float(headers.get('cooldown-reset', 0))
+        self.anti_spam_delay = float(headers.get('retry-after', 0))
+
+        logger.debug(
+            f"Rates updated for {self.endpoint}: {self.remaining_requests=}, {self.reset_time=}, "
+            f"{self.cooldown_time=}, {self.anti_spam_delay=}"
+        )
 
     def get_wait_time(self):
         if self.anti_spam_delay != 0:
@@ -56,53 +67,29 @@ class RateLimitedEndpoint:
 
     async def wait(self, *, show_progress: bool = False):
         if self.anti_spam_delay != 0:
-            logger.warning(f"Sleeping for {self.anti_spam_delay}s, anti-spam cooldown triggered!")
+            logger.warning(f"Sleeping for {self.anti_spam_delay}s, anti-spam cooldown triggered! ({self.endpoint})")
             return await self.sleep(self.anti_spam_delay, show_progress=show_progress)
         if self.cooldown_time != 0:
-            logger.info(f"Sleeping {self.cooldown_time}s, on cooldown.")
+            logger.warning(f"Sleeping {self.cooldown_time}s, cooldown trigerred! ({self.endpoint})")
             return await self.sleep(self.cooldown_time, show_progress=show_progress)
         if self.remaining_requests == 0:
-            logger.info(f"Sleeping {self.reset_time}s, on reset.")
+            logger.info(f"Sleeping {self.reset_time}s, on reset. ({self.endpoint})")
             return await self.sleep(self.reset_time, show_progress=show_progress)
 
-        logger.debug(f"Sleeping default delay ({self.default_delay}), {self.remaining_requests} requests remaining.")
+        logger.debug(f"Sleeping default delay ({self.default_delay}), {self.remaining_requests} requests remaining. ({self.endpoint})")
         return await self.sleep(self.default_delay, show_progress=show_progress)
 
 
 class RateLimiter:
     def __init__(self):
-        self.rate_limits = defaultdict(RateLimitedEndpoint)
+        self.rate_limits = {}
 
     def update_from_headers(self, endpoint: str, headers: CaseInsensitiveDict[str]):
+        self.rate_limits.setdefault(endpoint, RateLimitedEndpoint(endpoint))
         limiter = self.rate_limits[endpoint]
         limiter.update_from_headers(headers)
 
     async def wait(self, endpoint: str, show_progress: bool = False):
+        self.rate_limits.setdefault(endpoint, RateLimitedEndpoint(endpoint))
         limiter = self.rate_limits[endpoint]
         await limiter.wait(show_progress=show_progress)
-
-
-class RateLimitBreached(Exception):
-    def __init__(self, *args, response: requests.Response, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # Get time limits from headers with RateLimitedEndpoint
-        temp_rate_limit = RateLimitedEndpoint()
-        temp_rate_limit.update_from_headers(response.headers)
-
-        self.requests_limit = temp_rate_limit.requests_limit
-        self.reset_time = temp_rate_limit.reset_time
-        self.remaining_requests = temp_rate_limit.remaining_requests
-        self.cooldown_time = temp_rate_limit.cooldown_time
-
-        # Store the expected wait and the original response which trigerred this exception
-        self.expected_wait_time = temp_rate_limit.get_wait_time()
-        self.response = response
-
-    def __str__(self):
-        s = super().__str__()
-        s += f"\nresponse={self.response.content}"
-        if self.expected_wait_time != 0:
-            s += f"\nexpected_wait_time={self.expected_wait_time}"
-
-        return s

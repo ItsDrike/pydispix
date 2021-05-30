@@ -1,9 +1,10 @@
 import logging
+import os
 from contextlib import contextmanager
 from typing import Optional, Union
 
 from pydispix.client import Client
-from pydispix.utils import get_token_from_env
+from pydispix.errors import NoFreeClient
 
 logger = logging.getLogger('pydispix')
 
@@ -62,7 +63,11 @@ class MultiClient:
         rate limitation or even a ban from the API so it is highly discouraged!
         """
         if tokens is None:
-            tokens = get_token_from_env()
+            try:
+                tokens = os.environ["TOKEN"]
+            except KeyError:
+                raise RuntimeError("Unable to load token, 'TOKEN' environmental variable not found.")
+
         if not isinstance(tokens, list):
             tokens = [tokens]
 
@@ -131,25 +136,21 @@ class MultiClient:
 
     # These have to be defined manually, for static type linting
     async def put_pixel(self, *args, **kwargs) -> str:
-        with self.with_free_client() as client:
+        with self.free_client() as client:
             return await client.async_put_pixel(*args, **kwargs)
 
     async def get_pixel(self, *args, **kwargs) -> str:
-        with self.with_free_client() as client:
+        with self.free_client() as client:
             return await client.async_get_pixel(*args, **kwargs)
 
     async def get_canvas(self, *args, **kwargs) -> str:
-        with self.with_free_client() as client:
+        with self.free_client() as client:
             return await client.async_get_canvas(*args, **kwargs)
 
     async def get_dimensions(self, *args, **kwargs) -> str:
-        with self.with_free_client() as client:
+        with self.free_client() as client:
             return await client.async_get_dimensions(*args, **kwargs)
 
     async def make_request(self, *args, **kwargs) -> str:
-        with self.with_free_client() as client:
+        with self.free_client() as client:
             return await client.async_make_request(*args, **kwargs)
-
-
-class NoFreeClient(Exception):
-    pass

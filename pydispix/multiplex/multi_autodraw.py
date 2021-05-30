@@ -5,6 +5,7 @@ from pydispix.canvas import Pixel
 from pydispix.client import Client
 from pydispix.autodraw import AutoDrawer
 from pydispix.multiplex.multi_client import MultiClient
+from pydispix.errors import OutOfBoundaries
 
 logger = logging.getLogger('pydispix')
 
@@ -37,6 +38,11 @@ class MultiAutoDrawer():
         self.parts_to_use = multiplexed_client.multiplexed_positions
 
         pixels = len(self.grids) * len(self.grids[0])
+
+        canvas_width, canvas_height = canvas_size = self.client.get_dimensions()
+        image_width, image_height = image_size = len(self.grid[0]), len(self.grid)
+        if image_width > canvas_width or image_height > canvas_height:
+            raise OutOfBoundaries(f"Can't draw picture bigger than the canvas ({image_size} > {canvas_size})")
 
         if pixels < self.parts_to_use:
             return ValueError(

@@ -2,6 +2,8 @@
 import PIL.Image
 import matplotlib.pyplot as plt
 
+from pydispix.errors import CanvasFormatError
+
 
 class Pixel:
     """A single pixel of the canvas."""
@@ -87,7 +89,3 @@ class Canvas:
     def save(self, path: str):
         """Save the image to a given file."""
         self.image.save(path)
-
-
-class CanvasFormatError(Exception):
-    """Exception raised when the canvas is badly formatted."""
