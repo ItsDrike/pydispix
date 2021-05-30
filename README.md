@@ -119,7 +119,7 @@ This is how you run a single task like this with Church of Rick:
 from pydispix.churches import RickChurchClient
 
 client = RickChurchClient(pixels_api_token, rick_church_api_token)
-client.run_task()
+client.run_task(show_progress=True)
 ```
 
 Church of SQLite is also supported, and they don't require an API key, it is free for everyone:
@@ -130,6 +130,55 @@ from pydispix.churches import SQLiteChurchClient
 client = SQLiteChurchClient(pixels_api_token)
 client.run_task()
 ```
+
+### Continually running church tasks
+
+If you wish to keep running church tasks continually in a loop, make sure to use `client.run_tasks()`,
+don't use `client.run_task()` since it doesn't have any error handling. Churches often raise errors
+in certain situations, and using `client.run_tasks()` will ensure they're handled cleanly.
+
+Note: `client.run_tasks()` only handles known exceptions, there might still be some exceptions that a
+church could raise which aren't handled. If you manage to find one make sure to file an issue about it.
+
+Example of safe continual script to keep running church tasks on your machine:
+
+```py
+import pickle
+from pydispix.churches import RickChurchClient
+
+client = RickChurchClient(pixels_api_token, rick_church_api_token)
+
+exception_amt = 0
+while True:
+    try:
+        client.run_tasks(show_progress=True)
+    except KeyboardInterrupt as exc:
+        print(exceptions)
+        raise exc
+    except Exception as exc:
+        print(f"Exception ocurred: {exc} (#{exception_amt})")
+        with open(f"exception{exception_amt}.pickle", "wb") as f:
+            pickle.dump(exc, f)
+```
+
+There is still exception handling here, but it shouldn't capture any, it's only here since you'll
+likely not be there to monitor the process all the time, so even in the rare case that something 
+were to occur, the program will keep running and the exception will stored with pickle.
+
+If you see that this happened (if you find `exceptionX.pickle` files in your working directory),
+load the pickled exception and examine what exactly happened
+
+```py
+import pickle
+
+with open("exception0.pickle", "rb") as f:
+  exc = pickle.load(f)
+```
+
+**Important: do not upload the pickle file anywhere, it contains the request, which includes your
+API keys, uploading the pickled file would inevitable lead to leaked API key.**
+
+### Custom churches
 
 You can also implement your own church according to it's specific API requirements, if you're
 interested in doing this, check the [church.py](pydispix/church.py) and how the specific churches
