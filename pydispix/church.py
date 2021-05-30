@@ -6,11 +6,12 @@ from functools import partial
 from typing import Union
 
 import requests
+from unsync import unsync
 
 from pydispix.client import Client
 from pydispix.color import Color, parse_color
 from pydispix.errors import RateLimitBreached, get_response_result
-from pydispix.utils import resolve_url_endpoint, synchronize
+from pydispix.utils import resolve_url_endpoint
 
 logger = logging.getLogger("pydispix")
 
@@ -86,7 +87,7 @@ class ChurchClient(Client):
         # This can't just use the `set_pixel`, because we need to send submit message to the church
         # before we wait for the rate limits, this is also why we use `make_raw_request` instead
         # of just using `make_requests` that handles the rate limits for us
-        task = await self.get_task(repeat_delay=repeat_delay)
+        task = await self.async_get_task(repeat_delay=repeat_delay)
         logger.info(f"Running church task: {task}")
 
         # Manual set_pixel, with submit before waiting for rate limits
@@ -166,7 +167,7 @@ class ChurchClient(Client):
                     else:
                         raise e
 
-    get_task = synchronize(async_get_task)
-    submit_task = synchronize(async_submit_task)
-    run_task = synchronize(async_run_task)
-    run_tasks = synchronize(async_run_tasks)
+    get_task = unsync(async_get_task)
+    submit_task = unsync(async_submit_task)
+    run_task = unsync(async_run_task)
+    run_tasks = unsync(async_run_tasks)

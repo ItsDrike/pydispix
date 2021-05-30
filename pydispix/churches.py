@@ -6,10 +6,10 @@ from dataclasses import dataclass
 from json.decoder import JSONDecodeError
 
 import requests
+from unsync import unsync
 
 from pydispix.church import ChurchClient, ChurchTask
 from pydispix.errors import RateLimitBreached, get_response_result
-from pydispix.utils import synchronize
 
 logger = logging.getLogger("pydispix")
 
@@ -158,11 +158,11 @@ class RickChurchClient(ChurchClient):
         response = await self.async_make_request("GET", url)
         return response.json()
 
-    get_personal_stats = synchronize(async_get_personal_stats)
-    get_church_stats = synchronize(async_get_church_stats)
-    get_leaderboard = synchronize(async_get_leaderboard)
-    get_uptime = synchronize(async_get_uptime)
-    get_projects = synchronize(async_get_projects)
+    get_personal_stats = unsync(async_get_personal_stats)
+    get_church_stats = unsync(async_get_church_stats)
+    get_leaderboard = unsync(async_get_leaderboard)
+    get_uptime = unsync(async_get_uptime)
+    get_projects = unsync(async_get_projects)
 
 
 class SQLiteChurchClient(ChurchClient):

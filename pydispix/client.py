@@ -4,12 +4,13 @@ from collections import namedtuple
 from typing import Callable, Optional, Union
 
 import requests
+from unsync import unsync
 
 from pydispix.canvas import Canvas, Pixel
 from pydispix.color import Color, parse_color
 from pydispix.errors import InvalidToken, RateLimitBreached, handle_invalid_body
 from pydispix.ratelimits import RateLimiter
-from pydispix.utils import resolve_url_endpoint, synchronize
+from pydispix.utils import resolve_url_endpoint
 
 logger = logging.getLogger("pydispix")
 Dimensions = namedtuple("Dimensions", ("width", "height"))
@@ -211,8 +212,8 @@ class Client:
         logger.info(f"Success: {msg}")
         return msg
 
-    make_request = synchronize(async_make_request)
-    get_dimensions = synchronize(async_get_dimensions)
-    get_canvas = synchronize(async_get_canvas)
-    get_pixel = synchronize(async_get_pixel)
-    put_pixel = synchronize(async_put_pixel)
+    make_request = unsync(async_make_request)
+    get_dimensions = unsync(async_get_dimensions)
+    get_canvas = unsync(async_get_canvas)
+    get_pixel = unsync(async_get_pixel)
+    put_pixel = unsync(async_put_pixel)
