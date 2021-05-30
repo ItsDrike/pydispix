@@ -40,36 +40,6 @@ class RickChurchClient(ChurchClient):
     ):
         super().__init__(pixel_api_token, church_token, base_church_url, *args, **kwargs)
 
-    @property
-    def personal_stats(self):
-        """Get personal stats."""
-        url = self.resolve_church_endpoint("user/stats")
-        return self.make_request("GET", url, params={"key": self.church_token}).json()
-
-    @property
-    def church_stats(self):
-        """Get church stats."""
-        url = self.resolve_church_endpoint("overall_stats")
-        return self.make_request("GET", url).json()
-
-    @property
-    def leaderboard(self) -> list:
-        """Get church leaderboard."""
-        url = self.resolve_church_endpoint("leaderboard")
-        return self.make_request("GET", url).json()["leaderboard"]
-
-    @property
-    def uptime(self) -> float:
-        """Uptime of the church of rick."""
-        url = self.resolve_church_endpoint("leaderboard")
-        return float(self.make_request("GET", url).json()["uptime"])
-
-    @property
-    def projects(self) -> list:
-        """Get project data from the church."""
-        url = self.resolve_church_endpoint("projects/stats")
-        return self.make_request("GET", url).json()
-
     def get_task(self, repeat_delay: int = 2) -> RickChurchTask:
         url = self.resolve_church_endpoint("get_task")
         while True:
@@ -154,6 +124,31 @@ class RickChurchClient(ChurchClient):
             # call the super's implementation of this, there could
             # be some other common errors
             return super()._handle_church_task_errors(exception)
+
+    def get_personal_stats(self):
+        """Get personal stats."""
+        url = self.resolve_church_endpoint("user/stats")
+        return self.make_request("GET", url, params={"key": self.church_token}).json()
+
+    def get_church_stats(self):
+        """Get church stats."""
+        url = self.resolve_church_endpoint("overall_stats")
+        return self.make_request("GET", url).json()
+
+    def get_leaderboard(self) -> list:
+        """Get church leaderboard."""
+        url = self.resolve_church_endpoint("leaderboard")
+        return self.make_request("GET", url).json()["leaderboard"]
+
+    def get_uptime(self) -> float:
+        """Uptime of the church of rick."""
+        url = self.resolve_church_endpoint("leaderboard")
+        return float(self.make_request("GET", url).json()["uptime"])
+
+    def get_projects(self) -> list:
+        """Get project data from the church."""
+        url = self.resolve_church_endpoint("projects/stats")
+        return self.make_request("GET", url).json()
 
 
 class SQLiteChurchClient(ChurchClient):

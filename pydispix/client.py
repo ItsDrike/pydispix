@@ -1,13 +1,14 @@
-import os
-import requests
 import logging
+import os
 from collections import namedtuple
-from typing import Callable, Union, Optional
+from typing import Callable, Optional, Tuple, Union
 
-from pydispix.ratelimits import RateLimiter
+import requests
+
 from pydispix.canvas import Canvas, Pixel
 from pydispix.color import Color, parse_color
-from pydispix.errors import RateLimitBreached, InvalidToken, handle_invalid_body
+from pydispix.errors import InvalidToken, RateLimitBreached, handle_invalid_body
+from pydispix.ratelimits import RateLimiter
 from pydispix.utils import resolve_url_endpoint
 
 logger = logging.getLogger("pydispix")
@@ -183,7 +184,7 @@ class Client:
     def put_pixel(
         self,
         x: int, y: int,
-        color: Union[int, str, tuple[int, int, int], Color],
+        color: Union[int, str, Tuple[int, int, int], Color],
         show_progress: bool = False,
     ) -> str:
         """

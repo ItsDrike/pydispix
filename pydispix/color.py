@@ -1,6 +1,6 @@
 import enum
 import re
-from typing import Union
+from typing import Tuple, Union
 
 from pydispix.canvas import Pixel
 
@@ -24,7 +24,7 @@ class Color(enum.Enum):
     DISCORD_BLACK = '23272A'
 
 
-def parse_color(value: Union[int, str, tuple[int, int, int], Color]) -> str:
+def parse_color(value: Union[int, str, Tuple[int, int, int], Color]) -> str:
     """Parse a colour to a hex string.
     Accepts integers, strings and instances of the Colour enum.
     """

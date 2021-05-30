@@ -3,7 +3,7 @@ import time
 from abc import abstractmethod
 from dataclasses import dataclass
 from functools import partial
-from typing import Union
+from typing import Tuple, Union
 
 import requests
 
@@ -19,7 +19,7 @@ logger = logging.getLogger("pydispix")
 class ChurchTask:
     x: int
     y: int
-    color: Union[int, str, tuple[int, int, int], Color]
+    color: Union[int, str, Tuple[int, int, int], Color]
 
 
 class ChurchClient(Client):

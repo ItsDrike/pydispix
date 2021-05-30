@@ -1,6 +1,8 @@
 
-import PIL.Image
+from typing import Tuple
+
 import matplotlib.pyplot as plt
+import PIL.Image
 
 from pydispix.errors import CanvasFormatError
 
@@ -20,7 +22,7 @@ class Pixel:
         return cls(*(int(hex[i:i + 2], 16) for i in range(0, 6, 2)))
 
     @property
-    def triple(self) -> tuple[int, int, int]:
+    def triple(self) -> Tuple[int, int, int]:
         """Get the pixel as an RGB triple."""
         return self.red, self.green, self.blue
 
@@ -52,7 +54,7 @@ class Pixel:
 
 class Canvas:
     """container for all the pixels on a canvas."""
-    def __init__(self, size: tuple[int, int], data: bytes):
+    def __init__(self, size: Tuple[int, int], data: bytes):
         """Parse the raw canvas data."""
         self.width, self.height = size
 
@@ -73,7 +75,7 @@ class Canvas:
         self.raw = data
         self.image = PIL.Image.frombytes('RGB', size, data)
 
-    def __getitem__(self, xy: tuple[int, int]):
+    def __getitem__(self, xy: Tuple[int, int]):
         """Get a pixel by coordinates."""
         x, y = xy
         return self.grid[y][x]

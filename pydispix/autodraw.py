@@ -1,13 +1,12 @@
 """Tool for automatically drawing images."""
 import logging
 import time
-from typing import Iterator
+from typing import Iterator, List, Tuple
 
 import PIL.Image
 
-from pydispix.canvas import Pixel, Canvas
+from pydispix.canvas import Canvas, Pixel
 from pydispix.client import Client
-
 
 logger = logging.getLogger('pydispix')
 
@@ -19,7 +18,7 @@ class AutoDrawer:
         self,
         client: Client,
         x: int, y: int,
-        grid: list[list[Pixel]]
+        grid: List[List[Pixel]]
     ):
         """Store the plan."""
         self.client = client
@@ -41,7 +40,7 @@ class AutoDrawer:
     def load_image(
         cls,
         client: Client,
-        xy: tuple[int, int],
+        xy: Tuple[int, int],
         image: PIL.Image.Image,
         scale: float = 1
     ) -> 'AutoDrawer':
@@ -83,7 +82,7 @@ class AutoDrawer:
             grid.append(row)
         return cls(client, x, y, grid)
 
-    def _iter_coords(self) -> Iterator[tuple[int, int]]:
+    def _iter_coords(self) -> Iterator[Tuple[int, int]]:
         """Iterate over the coordinates of the image."""
         for x in range(self.x0, self.x1):
             for y in range(self.y0, self.y1):

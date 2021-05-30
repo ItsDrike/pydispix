@@ -18,7 +18,7 @@ class RateLimitedEndpoint:
         self.default_delay = default_delay  # If no other limit is found, how long should we wait
         self.anti_spam_delay = 0            # This is hit when multiple tokens are used
 
-    def update_from_headers(self, headers: CaseInsensitiveDict[str]):
+    def update_from_headers(self, headers: CaseInsensitiveDict):
         # Static values for given endpoint
         if "requests-limit" in headers:
             self.requests_limit = int(headers["requests-limit"])
@@ -84,7 +84,7 @@ class RateLimiter:
     def __init__(self):
         self.rate_limits = {}
 
-    def update_from_headers(self, endpoint: str, headers: CaseInsensitiveDict[str]):
+    def update_from_headers(self, endpoint: str, headers: CaseInsensitiveDict):
         self.rate_limits.setdefault(endpoint, RateLimitedEndpoint(endpoint))
         limiter = self.rate_limits[endpoint]
         limiter.update_from_headers(headers)
