@@ -8,7 +8,7 @@ from json.decoder import JSONDecodeError
 import requests
 
 from pydispix.church import ChurchClient, ChurchTask
-from pydispix.errors import RateLimitBreached
+from pydispix.errors import RateLimitBreached, get_response_result
 
 logger = logging.getLogger("pydispix")
 
@@ -94,46 +94,66 @@ class RickChurchClient(ChurchClient):
         logger.info(f"Task submitted to the church (tasks complete={self.personal_stats['goodTasks']})")
         return req
 
-    def run_task(
-        self,
-        submit_endpoint: str = "submit_task",
-        show_progress: bool = False,
-        repeat_delay: int = 5,
-        repeat_on_ratelimit: bool = True,
-    ) -> requests.Response:
+    def _handle_church_task_errors(self, exception: Exception) -> None:
         """
-        Extend `run_task` to handle specific exceptions from the
-        church of rick.
+        Rick church can raise certain specific errors, handle
+        them here or raise them back, if they shouldn't be handled.
         """
-        try:
-            return super().run_task(
-                submit_endpoint=submit_endpoint,
-                show_progress=show_progress,
-                repeat_delay=repeat_delay,
-                repeat_on_ratelimit=repeat_on_ratelimit,
-            )
-        except RateLimitBreached as exc:
-            # If we take longer to submit a request to the church, it will
-            # result in RateLimitBreached
+        if isinstance(exception, RateLimitBreached):
             try:
-                details = exc.response.json()["detail"]
-            except (JSONDecodeError, KeyError):
-                # If response isn't json decodeable or doesn't contain a detail key,
-                # it isn't from rick church
-                raise exc
-            if not re.search(
-                r"You have not gotten a task yet or you took more than \d+ seconds to submit your task",
-                details
-            ):
-                # If we didn't catch this error message, something else has ocurred
-                # or this wasn't an exception from the rick church, don't handle it
-                raise exc
-            logger.warn("Church task failed, got rate limited: submitting task took too long")
-            return self.run_task(
-                submit_endpoint=submit_endpoint,
-                show_progress=show_progress,
-                repeat_on_ratelimit=repeat_on_ratelimit
+                detail = get_response_result(exception, "detail")
+            except (UnicodeDecodeError, JSONDecodeError, KeyError):
+                # If we can't get the detail, this isn't the exception we're looking for
+                return super()._handle_church_task_errors(exception)
+
+            match = re.search(
+                r"You have not gotten a task yet or you took more than (\d+) seconds to submit your task",
+                detail
             )
+            if not match:
+                # If the detail isn't matching, this isn't an exception from the rick church
+                return super()._handle_church_task_errors(exception)
+
+            # Log the exception and proceed cleanly
+            logger.warn(f"Church task failed, task disassigned, submitting took over {match.groups()[0]} seconds")
+        elif isinstance(exception, requests.HTTPError):
+            try:
+                detail = get_response_result(exception, "detail")
+            except (UnicodeDecodeError, JSONDecodeError, KeyError):
+                # If we can't get the detail, this isn't the exception we're looking for
+                return super()._handle_church_task_errors(exception)
+
+            if exception.response.status_code == 409:
+                if detail != "This is not the task you were assigned":
+                    # If the detail isn't matching, this isn't an exception from the rick church
+                    return super()._handle_church_task_errors(exception)
+
+                # Log the exception and proceed cleanly
+                logger.warn("Church task failed, this task already got reassigned to somebody else.")
+            elif exception.response.status_code == 400:
+                msg = (
+                    "You did not complete this task properly, or it was fixed before the server could verify it. "
+                    "You have not been credited for this task."
+                )
+                if detail != msg:
+                    # If the detail isn't matching, this isn't an exception from the rick church
+                    return super()._handle_church_task_errors(exception)
+
+                # Log the exception and proceed cleanly
+                logger.warn("Church task failed, check failed, someone has overwritten the pixel before we could submit it.")
+        elif isinstance(exception, requests.exceptions.SSLError):
+            url = exception.request.url
+            if not url.startswith(self.base_church_url):
+                # This error doesn't come from church of rick URL
+                return super()._handle_church_task_errors(exception)
+
+            # Log the exception and proceed cleanly
+            logger.warn("Church task failed, SSL Error: Church of rick's SSL certificate wasn't valid. For some reason this sometimes occurs.")
+        else:
+            # If we didn't find a rich church specific exception,
+            # call the super's implementation of this, there could
+            # be some other common errors
+            return super()._handle_church_task_errors(exception)
 
 
 class SQLiteChurchClient(ChurchClient):

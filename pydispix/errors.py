@@ -1,6 +1,8 @@
-from typing import Any
-import requests
 import re
+from json.decoder import JSONDecodeError
+from typing import Any, Optional, Union
+
+import requests
 
 from pydispix.ratelimits import RateLimitedEndpoint
 
@@ -81,3 +83,35 @@ def handle_invalid_body(response: requests.HTTPError) -> PyDisPixError:
         return OutOfBoundaries(entry["msg"])
 
     raise requests.HTTPError("Unrecognized 422 exception, please report this issue in the pydispix repository", response=response)
+
+
+def get_response_result(exception: Exception, key: Optional[str] = None, error_on_fail: bool = False) -> Union[str, bytes, dict, list]:
+    if not hasattr(exception, "response"):
+        raise ValueError("This exception doesn't have a `response` attribute.")
+
+    try:
+        response = exception.response.content.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        if error_on_fail:
+            raise exc
+        # Return the raw bytes, utf-8 conversion failed
+        return exception.response.content
+
+    try:
+        response = exception.response.json()
+    except JSONDecodeError as exc:
+        if error_on_fail:
+            raise exc
+        # Return the `content` message, this isn't JSON docodeable
+        return response
+
+    if key is not None:
+        try:
+            response = response[key]
+        except KeyError as exc:
+            if error_on_fail:
+                raise exc
+            # Return the whole json, it doesn't contain wanted key
+            return response
+
+    return response

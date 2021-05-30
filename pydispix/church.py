@@ -1,15 +1,15 @@
 import logging
+import time
 from abc import abstractmethod
 from dataclasses import dataclass
 from functools import partial
-from json.decoder import JSONDecodeError
 from typing import Union
 
 import requests
 
 from pydispix.client import Client
 from pydispix.color import Color, parse_color
-from pydispix.errors import RateLimitBreached
+from pydispix.errors import RateLimitBreached, get_response_result
 from pydispix.utils import resolve_url_endpoint
 
 logger = logging.getLogger("pydispix")
@@ -43,7 +43,7 @@ class ChurchClient(Client):
         return resolve_url_endpoint(self.base_church_url, endpoint)
 
     @abstractmethod
-    def get_task(self, endpoint: str = "get_task", repeat_delay: int = 5) -> ChurchTask:
+    def get_task(self, endpoint: str = "get_task", repeat_delay: int = 2) -> ChurchTask:
         """
         Get task from the church, this is an abstract method, you'll need
         to override this to get it to work with your church's specific API.
@@ -59,11 +59,19 @@ class ChurchClient(Client):
         to override this to get it to work with your church's specific API.
         """
 
+    def _handle_church_task_errors(self, exception: Exception) -> None:
+        """
+        Handle exceptions that might occur while making a church
+        task, since these exception are specific to each church,
+        this method should be overwritten by each church to handle them.
+        """
+        raise exception
+
     def run_task(
         self,
         submit_endpoint: str = "submit_task",
         show_progress: bool = False,
-        repeat_delay: int = 5,
+        repeat_delay: int = 2,
         repeat_on_ratelimit: bool = True,
     ):
         """
@@ -96,10 +104,7 @@ class ChurchClient(Client):
                 show_progress=show_progress
             )
         except RateLimitBreached as exc:
-            try:
-                response_text = exc.response.json()["message"]
-            except (JSONDecodeError, KeyError):
-                response_text = exc.response.content
+            response_text = get_response_result(exc, "message")
 
             # This can occur first time we run this, since we're handling
             # rate limits after the request is made, `repeat_on_ratelimit`
@@ -129,12 +134,33 @@ class ChurchClient(Client):
         self,
         submit_endpoint: str = "submit_task",
         show_progress: bool = False,
-        repeat_delay: int = 5
+        repeat_delay: int = 2
     ):
-        """Keep running church tasks forever."""
+        """
+        Continually run church tasks, in case we encounter a known exception, handle it
+        cleanly, but if the exception isn't known, it should still be raised, it's up to
+        the user to handle those, we raise them to make debugging possible.
+        """
         while True:
-            self.run_task(
-                submit_endpoint=submit_endpoint,
-                show_progress=show_progress,
-                repeat_delay=repeat_delay
-            )
+            try:
+                self.run_task(
+                    submit_endpoint=submit_endpoint,
+                    show_progress=show_progress,
+                    repeat_delay=repeat_delay
+                )
+            except Exception as exc:
+                # If this exception was specific to the church,
+                # it should be cleanly handled in this function,
+                # otherwise it should be raised from it.
+                try:
+                    self._handle_church_task_errors(exc)
+                except requests.HTTPError as e:
+                    # Handle 500/502s here, because they require a sleep
+                    # and they normally shouldn't occur, this is a special
+                    # case for when the church is down, which, for some reason
+                    # occurs relatively often with some churches
+                    if e.response.status_code in (500, 502):
+                        logger.exception(f"The Church server is down, waiting {repeat_delay}s", exc_info=e)
+                        time.sleep(repeat_delay)
+                    else:
+                        raise e
