@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pydispix"
-version = "1.0.1"
+version = "1.1.0"
 description = "API wrapper for python-discord's pixels."
 authors = ["ItsDrike <itsdrikeofficial@gmail.com>"]
 license = "MIT"
