@@ -1,8 +1,5 @@
 {
-    "exclude": [
-        ".cache",
-        "**/__pycache__",
-        ".venv",
-        "build"
+    "include": [
+        "pydispix"
     ]
 }
