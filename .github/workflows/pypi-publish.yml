@@ -9,7 +9,7 @@ on:
       - setup.py
 
 env:
-  PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+  POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
 
 jobs:
   build-and-publish:
@@ -33,6 +33,4 @@ jobs:
         run: python -m poetry build
 
       - name: Publish distribution to PyPI
-        run: |
-          poetry config pypi-token.pypi $PYPI_API_TOKEN
-          python -m poetry publish
+        run: python -m poetry publish
