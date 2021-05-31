@@ -86,13 +86,13 @@ class Canvas:
         return self.grid[y][x]
 
     def show(self):
-        """Display the image."""
-        self.image.show()
+        """Display the image with matplotlib."""
+        plt.imshow(self.image)
+        plt.show()
 
     def mpl_show(self):
         """Display the image with matplotlib"""
-        plt.imshow(self.image)
-        plt.show()
+        raise DeprecationWarning("This function is deprecated since 0.10.3 in favor of `Canvas.show()`")
 
     def save(self, path: str):
         """Save the image to a given file."""
