@@ -51,3 +51,5 @@ class MultiAutoDrawer(AutoDrawer):
             pixel_no = y * width + x
             if pixel_no % self.client.total_tasks in self.client.controlled_tasks:
                 yield x, y
+            else:
+                logger.debug(f"Skipping uncontrolled pixel ({x}, {y})")
