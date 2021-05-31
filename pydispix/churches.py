@@ -39,11 +39,14 @@ class RickChurchClient(ChurchClient):
         **kwargs
     ):
         super().__init__(pixel_api_token, church_token, base_church_url, *args, **kwargs)
+        self.church_headers = {
+            "key": self.church_token
+        }
 
     def get_task(self, repeat_delay: int = 2) -> RickChurchTask:
         url = self.resolve_church_endpoint("get_task")
         while True:
-            response = self.make_request("GET", url, params={"key": self.church_token}).json()
+            response = self.make_request("GET", url, headers=self.church_headers).json()
 
             if response["task"] is None:
                 logger.info(f"Church doesn't currently have any aviable tasks, waiting {repeat_delay}s")
@@ -60,7 +63,7 @@ class RickChurchClient(ChurchClient):
             'y': church_task.y,
             'color': church_task.color
         }
-        req = self.make_request("POST", url, data=body, params={"key": self.church_token})
+        req = self.make_request("POST", url, data=body, headers=self.church_headers)
         completed_tasks = self.get_personal_stats()["goodTasks"]
         logger.info(f"Task submitted to the church (tasks complete={completed_tasks}")
         return req
@@ -129,6 +132,7 @@ class RickChurchClient(ChurchClient):
     def get_personal_stats(self):
         """Get personal stats."""
         url = self.resolve_church_endpoint("user/stats")
+        # TODO: Check if this works with headers
         return self.make_request("GET", url, params={"key": self.church_token}).json()
 
     def get_church_stats(self):
