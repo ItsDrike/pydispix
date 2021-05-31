@@ -1,0 +1,66 @@
+#!/usr/bin/env python
+
+import argparse
+
+import pydispix
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="This is a CLI utility for interracting with the python-discord's pixels API")
+    parser.add_argument(
+        "--api-token", required=True,
+        help="You can provide the pixels API token with this."
+    )
+    parser.add_argument(
+        "-x", "--x", type=int, metavar="Y COORDINATE",
+        help="Set X coordinate for other tasks"
+    )
+    parser.add_argument(
+        "-y", "--y", type=int, metavar="X COORDINATE",
+        help="Set Y coordinate for other tasks"
+    )
+    parser.add_argument(
+        "-c", "--color", type=str, metavar="HEX COLOR",
+        help="Set color for other tasks"
+    )
+    parser.add_argument(
+        "--get-pixel", action="store_true",
+        help="Fetch specific pixel from canvas."
+    )
+    parser.add_argument(
+        "--set-pixel", action="store_true",
+        help="Set specific pixel on canvas."
+    )
+
+    namespace = parser.parse_args()
+    cli_args = {k: v for k, v in vars(namespace).items()}
+
+    if cli_args["color"] is not None:
+        cli_args["color"] = pydispix.parse_color(cli_args["color"])
+
+    if cli_args["get_pixel"] or cli_args["set_pixel"]:
+        if cli_args["x"] is None:
+            raise ValueError("X coordinate not provided")
+        elif cli_args["y"] is None:
+            raise ValueError("Y coordinate not provided")
+
+    if cli_args["set_pixel"]:
+        if cli_args["color"] is None:
+            raise ValueError("Color not provided")
+
+    return cli_args
+
+
+def main():
+    cli_args = parse_args()
+    client = pydispix.Client(cli_args["api_token"])
+    if cli_args["get_pixel"] is True:
+        pixel = client.get_pixel(cli_args["x"], cli_args["y"])
+        print(f"Pixel at {(cli_args['x'], cli_args['y'])} has color {pixel}")
+    if cli_args["set_pixel"] is True:
+        client.put_pixel(cli_args["x"], cli_args["y"], cli_args["color"])
+        print(f"Pixel at {(cli_args['x'], cli_args['y'])} was set to {cli_args['color']}")
+
+
+if __name__ == "__main__":
+    main()
