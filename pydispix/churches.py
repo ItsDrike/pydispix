@@ -63,7 +63,8 @@ class RickChurchClient(ChurchClient):
             'color': church_task.color
         }
         req = await self.async_make_request("POST", url, data=body, params={"key": self.church_token})
-        logger.info(f"Task submitted to the church (tasks complete={self.personal_stats['goodTasks']})")
+        completed_tasks = (await self.async_get_personal_stats())["goodTasks"]
+        logger.info(f"Task submitted to the church (tasks complete={completed_tasks})")
         return req
 
     def _handle_church_task_errors(self, exception: Exception) -> None:
@@ -73,7 +74,7 @@ class RickChurchClient(ChurchClient):
         """
         if isinstance(exception, RateLimitBreached):
             try:
-                detail = get_response_result(exception, "detail")
+                detail: str = get_response_result(exception, "detail", error_on_fail=True)  # type: ignore
             except (UnicodeDecodeError, JSONDecodeError, KeyError):
                 # If we can't get the detail, this isn't the exception we're looking for
                 return super()._handle_church_task_errors(exception)
@@ -87,10 +88,10 @@ class RickChurchClient(ChurchClient):
                 return super()._handle_church_task_errors(exception)
 
             # Log the exception and proceed cleanly
-            logger.warn(f"Church task failed, task disassigned, submitting took over {match.groups()[0]} seconds")
+            logger.warning(f"Church task failed, task disassigned, submitting took over {match.groups()[0]} seconds")
         elif isinstance(exception, requests.HTTPError):
             try:
-                detail = get_response_result(exception, "detail")
+                detail: str = get_response_result(exception, "detail", error_on_fail=True)  # type: ignore - if it's not str, we handle it
             except (UnicodeDecodeError, JSONDecodeError, KeyError):
                 # If we can't get the detail, this isn't the exception we're looking for
                 return super()._handle_church_task_errors(exception)
@@ -101,7 +102,7 @@ class RickChurchClient(ChurchClient):
                     return super()._handle_church_task_errors(exception)
 
                 # Log the exception and proceed cleanly
-                logger.warn("Church task failed, this task already got reassigned to somebody else.")
+                logger.warning("Church task failed, this task already got reassigned to somebody else.")
             elif exception.response.status_code == 400:
                 msg = (
                     "You did not complete this task properly, or it was fixed before the server could verify it. "
@@ -112,7 +113,7 @@ class RickChurchClient(ChurchClient):
                     return super()._handle_church_task_errors(exception)
 
                 # Log the exception and proceed cleanly
-                logger.warn("Church task failed, check failed, someone has overwritten the pixel before we could submit it.")
+                logger.warning("Church task failed, check failed, someone has overwritten the pixel before we could submit it.")
         elif isinstance(exception, requests.exceptions.SSLError):
             url = exception.request.url
             if not url.startswith(self.base_church_url):
@@ -120,7 +121,7 @@ class RickChurchClient(ChurchClient):
                 return super()._handle_church_task_errors(exception)
 
             # Log the exception and proceed cleanly
-            logger.warn("Church task failed, SSL Error: Church of rick's SSL certificate wasn't valid. For some reason this sometimes occurs.")
+            logger.warning("Church task failed, SSL Error: Church of rick's SSL certificate wasn't valid. For some reason this sometimes occurs.")
         else:
             # If we didn't find a rich church specific exception,
             # call the super's implementation of this, there could
@@ -128,13 +129,13 @@ class RickChurchClient(ChurchClient):
             return super()._handle_church_task_errors(exception)
 
     # Add some misc endpoints which Church of Rick provides
-    async def async_get_personal_stats(self):
+    async def async_get_personal_stats(self) -> dict:
         """Get personal stats."""
         url = self.resolve_church_endpoint("user/stats")
         response = await self.async_make_request("GET", url, params={"key": self.church_token})
         return response.json()
 
-    async def async_get_church_stats(self):
+    async def async_get_church_stats(self) -> dict:
         """Get church stats."""
         url = self.resolve_church_endpoint("overall_stats")
         response = await self.async_make_request("GET", url)
@@ -175,13 +176,13 @@ class SQLiteChurchClient(ChurchClient):
             **kwargs
     ):
         # SQLite Church API is open for everyone, it doesn't need a token
-        church_token = None
+        church_token = ""
         super().__init__(pixel_api_token, church_token, base_church_url, *args, **kwargs)
 
     async def async_get_task(self, endpoint: str = "tasks", repeat_delay: int = 5) -> SQLiteChurchTask:
         url = self.resolve_church_endpoint(endpoint)
         while True:
-            task_list = await self.async_make_request("GET", url).json()
+            task_list = (await self.async_make_request("GET", url)).json()
 
             if len(task_list) == 0:
                 logger.info(f"Church doesn't currently have any aviable tasks, waiting {repeat_delay}s")

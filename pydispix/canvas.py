@@ -1,8 +1,14 @@
 
+from collections import namedtuple
+from typing import Tuple, Union
+
 import PIL.Image
 import matplotlib.pyplot as plt
 
 from pydispix.errors import CanvasFormatError
+
+Dimensions = namedtuple("Dimensions", ("width", "height"))
+SizeType = Union[Dimensions, Tuple[int, int]]
 
 
 class Pixel:
@@ -20,7 +26,7 @@ class Pixel:
         return cls(*(int(hex[i:i + 2], 16) for i in range(0, 6, 2)))
 
     @property
-    def triple(self) -> tuple[int, int, int]:
+    def triple(self) -> Tuple[int, int, int]:
         """Get the pixel as an RGB triple."""
         return self.red, self.green, self.blue
 
@@ -52,7 +58,8 @@ class Pixel:
 
 class Canvas:
     """container for all the pixels on a canvas."""
-    def __init__(self, size: tuple[int, int], data: bytes):
+
+    def __init__(self, size: SizeType, data: bytes):
         """Parse the raw canvas data."""
         self.width, self.height = size
 
@@ -61,18 +68,19 @@ class Canvas:
         if expected_length != actual_length:
             raise CanvasFormatError(f"Incorrect size ({size}), expected {expected_length} bytes, got {actual_length} bytes")
 
-        pixels = []
-        for start_idx in range(0, len(data), 3):
-            pixels.append(Pixel(*data[start_idx:start_idx + 3]))
+        pixels = [
+            Pixel(*data[start_idx:start_idx + 3])
+            for start_idx in range(0, len(data), 3)
+        ]
 
         self.grid = [
             pixels[row * self.width:(row + 1) * self.width]
             for row in range(self.height)
         ]
         self.raw = data
-        self.image = PIL.Image.frombytes('RGB', size, data)
+        self.image = PIL.Image.frombytes('RGB', (self.width, self.height), data)
 
-    def __getitem__(self, xy: tuple[int, int]):
+    def __getitem__(self, xy: SizeType):
         """Get a pixel by coordinates."""
         x, y = xy
         return self.grid[y][x]

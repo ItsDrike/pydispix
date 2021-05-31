@@ -1,19 +1,18 @@
 import logging
 import os
-from collections import namedtuple
-from typing import Callable, Optional, Union
+from typing import Callable, Optional
 
 import requests
 from unsync import unsync
 
-from pydispix.canvas import Canvas, Pixel
-from pydispix.color import Color, parse_color
-from pydispix.errors import InvalidToken, RateLimitBreached, handle_invalid_body
+from pydispix.canvas import Canvas, Dimensions, Pixel
+from pydispix.color import ResolvableColor, parse_color
+from pydispix.errors import (InvalidToken, RateLimitBreached,
+                             handle_invalid_body)
 from pydispix.ratelimits import RateLimiter
 from pydispix.utils import resolve_url_endpoint
 
 logger = logging.getLogger("pydispix")
-Dimensions = namedtuple("Dimensions", ("width", "height"))
 
 
 class Client:
@@ -30,16 +29,14 @@ class Client:
 
         self.token = token
         self.base_url = base_url
-        self.headers = {
-            "Authorization": "Bearer " + token,
-            "User-Agent": "ItsDrike pydispix",
-        }
+        self.headers = {"Authorization": "Bearer " + token}
         self.rate_limiter = RateLimiter()
 
     def make_raw_request(
         self, method: str, url: str, *,
         data: Optional[dict] = None,
         params: Optional[dict] = None,
+        headers: Optional[dict] = None,
         update_rate_limits: bool = True,
     ) -> requests.Response:
         """
@@ -47,11 +44,15 @@ class Client:
         Even though this will update the rate limtis, it will not wait for them.
         """
         logger.debug(f"Request: {method} on {url} {data=} {params=}.")
+
+        # Set the user-agent, if not set to something else
+        headers.setdefault("User-Agent", "ItsDrike pydispix")
+
         response = requests.request(
             method, url,
             json=data,
             params=params,
-            headers=self.headers
+            headers=headers
         )
 
         if update_rate_limits:
@@ -81,6 +82,7 @@ class Client:
         self, method: str, url: str, *,
         data: Optional[dict] = None,
         params: Optional[dict] = None,
+        headers: Optional[dict] = None,
         ratelimit_after: bool = False,
         task_after: Optional[Callable] = None,
         head_ratelimit_update: bool = False,
@@ -128,7 +130,9 @@ class Client:
         try:
             response = self.make_raw_request(
                 method, url,
-                data=data, params=params,
+                data=data,
+                params=params,
+                headers=headers,
                 update_rate_limits=True
             )
         except RateLimitBreached as exc:
@@ -136,9 +140,11 @@ class Client:
                 logger.warning(f"Hit rate limit, repeating request ({exc.response.content})")
                 # There's no point in using `head_ratelimit_update` here, since the failed
                 # request has already updated the rate limits.
-                return await self.make_request(
+                return await self.async_make_request(
                     method, url,
-                    data=data, params=params,
+                    data=data,
+                    params=params,
+                    headers=headers,
                     ratelimit_after=False,
                     task_after=task_after, head_ratelimit_update=False,
                     repeat_on_ratelimit=False, show_progress=show_progress
@@ -149,9 +155,9 @@ class Client:
             try:
                 result = task_after()
             except Exception as exc:
-                response.task_exception = exc
+                response.task_exception = exc  # type: ignore - type is unknown, because it's a new property we're adding
             else:
-                response.task_result = result
+                response.task_result = result  # type: ignore - type is unknown, because it's a new property we're adding
 
         if ratelimit_after:
             await self.rate_limiter.wait(url, show_progress=show_progress)
@@ -165,27 +171,28 @@ class Client:
     async def async_get_dimensions(self) -> Dimensions:
         """Make a request to obtain the canvas dimensions"""
         url = self.resolve_endpoint("get_size")
-        data = await self.async_make_request("GET", url).json()
+        data = (await self.async_make_request("GET", url)).json()
         return Dimensions(width=data["width"], height=data["height"])
 
     async def async_get_canvas(self, show_progress: bool = False) -> Canvas:
         """Fetch the whole canvas and return it in a `Canvas` object."""
         url = self.resolve_endpoint("get_pixels")
-        data = await self.async_make_request("GET", url, show_progress=show_progress).content
-        size = self.get_dimensions()
+        data = (await self.async_make_request("GET", url, show_progress=show_progress)).content
+        size = await self.async_get_dimensions()
         return Canvas(size, data)
 
     async def async_get_pixel(self, x: int, y: int, show_progress: bool = False) -> Pixel:
         """Fetch rgb data about a specific pixel"""
         url = self.resolve_endpoint("get_pixel")
-        data = await self.async_make_request("GET", url, params={"x": x, "y": y}, show_progress=show_progress).json()
+        response = await self.async_make_request("GET", url, params={"x": x, "y": y}, show_progress=show_progress)
+        data = response.json()
         hex_color = data["rgb"]
         return Pixel.from_hex(hex_color)
 
     async def async_put_pixel(
         self,
         x: int, y: int,
-        color: Union[int, str, tuple[int, int, int], Color],
+        color: ResolvableColor,
         show_progress: bool = False,
     ) -> str:
         """
@@ -204,6 +211,7 @@ class Client:
                 "y": y,
                 "rgb": parse_color(color)
             },
+            headers=self.headers,
             head_ratelimit_update=True,
             show_progress=show_progress,
         )

@@ -1,6 +1,6 @@
-import sys
-import os
 import logging
+import os
+import sys
 
 import colorama
 
@@ -28,7 +28,7 @@ class ColoredFormatter(logging.Formatter):
 
 
 def setup_logging():
-    DEBUG_MODE = 'DEBUG' in os.environ
+    debug_mode = 'DEBUG' in os.environ
     log_format = ColoredFormatter(
         f"{colorama.Fore.GREEN}%(asctime)s {colorama.Fore.RESET} | "
         f"{colorama.Style.BRIGHT} %(name)s {colorama.Style.RESET_ALL}   | "
@@ -38,5 +38,5 @@ def setup_logging():
     stream_handler.setFormatter(log_format)
 
     logger = logging.getLogger("pydispix")
-    logger.setLevel(logging.DEBUG if DEBUG_MODE else logging.INFO)
+    logger.setLevel(logging.DEBUG if debug_mode else logging.INFO)
     logger.addHandler(stream_handler)

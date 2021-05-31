@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import sys
+from typing import Union
+
 from requests.models import CaseInsensitiveDict
 
 logger = logging.getLogger('pydispix')
@@ -18,7 +20,7 @@ class RateLimitedEndpoint:
         self.default_delay = default_delay  # If no other limit is found, how long should we wait
         self.anti_spam_delay = 0            # This is hit when multiple tokens are used
 
-    def update_from_headers(self, headers: CaseInsensitiveDict[str]):
+    def update_from_headers(self, headers: CaseInsensitiveDict):
         # Static values for given endpoint
         if "requests-limit" in headers:
             self.requests_limit = int(headers["requests-limit"])
@@ -46,7 +48,7 @@ class RateLimitedEndpoint:
 
         return self.default_delay
 
-    async def sleep(self, seconds: int, *, show_progress: bool = False):
+    async def sleep(self, seconds: Union[int, float], *, show_progress: bool = False):
         # Progress bars shouldn't appear if we're waiting less than 5 seconds
         # it tends to be spammy and doesn't really provide much value
         if not show_progress or seconds < 5:
@@ -59,7 +61,7 @@ class RateLimitedEndpoint:
         sys.stdout.flush()
         sys.stdout.write("\b" * (toolbar_width + 1))  # return to start of line, after '['
 
-        for i in range(toolbar_width):
+        for _ in range(toolbar_width):
             await asyncio.sleep(seconds / toolbar_width)
             sys.stdout.write("#")
             sys.stdout.flush()
@@ -84,7 +86,7 @@ class RateLimiter:
     def __init__(self):
         self.rate_limits = {}
 
-    def update_from_headers(self, endpoint: str, headers: CaseInsensitiveDict[str]):
+    def update_from_headers(self, endpoint: str, headers: CaseInsensitiveDict):
         self.rate_limits.setdefault(endpoint, RateLimitedEndpoint(endpoint))
         limiter = self.rate_limits[endpoint]
         limiter.update_from_headers(headers)

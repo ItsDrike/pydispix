@@ -3,7 +3,7 @@ import asyncio
 from abc import abstractmethod
 from dataclasses import dataclass
 from functools import partial
-from typing import Union
+from typing import Tuple, Union
 
 import requests
 from unsync import unsync
@@ -20,7 +20,7 @@ logger = logging.getLogger("pydispix")
 class ChurchTask:
     x: int
     y: int
-    color: Union[int, str, tuple[int, int, int], Color]
+    color: Union[int, str, Tuple[int, int, int], Color]
 
 
 class ChurchClient(Client):
@@ -100,6 +100,7 @@ class ChurchClient(Client):
                     "y": task.y,
                     "rgb": parse_color(task.color)
                 },
+                headers=self.headers,
                 ratelimit_after=True,
                 # TODO: Fix this, `task_after` must take synchronous func, this should work, but it isn't ideal
                 task_after=partial(self.submit_task, task, endpoint=submit_endpoint),
@@ -129,8 +130,8 @@ class ChurchClient(Client):
 
         # Return status of the submit task, or raise the exception that ocurred in it
         if hasattr(response, "task_exception"):
-            raise response.task_exception
-        return response.task_result
+            raise response.task_exception  # type: ignore - since we assigned a task, this will be set by make_request
+        return response.task_result  # type: ignore - since we assigned a task, this will be set by make_request
 
     async def async_run_tasks(
         self,
