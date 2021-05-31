@@ -1,6 +1,6 @@
 """Tool for automatically drawing images."""
+import asyncio
 import logging
-import time
 from typing import Iterator, List, Optional, Tuple
 
 import PIL.Image
@@ -8,6 +8,7 @@ import PIL.Image
 from pydispix.canvas import Canvas, Pixel
 from pydispix.client import Client
 from pydispix.errors import OutOfBoundaries
+from pydispix.utils import run_synchronously
 
 logger = logging.getLogger('pydispix')
 
@@ -32,10 +33,10 @@ class AutoDrawer:
         self.y1 = y + len(self.grid)
 
         # Make sure we're within canvas boundaries
-        canvas_width, canvas_height = canvas_size = self.client.get_dimensions()
-        image_width, image_height = image_size = len(self.grid[0]), len(self.grid)
-        if image_width > canvas_width or image_height > canvas_height:
-            raise OutOfBoundaries(f"Can't draw picture bigger than the canvas ({image_size} > {canvas_size})")
+        self.canvas_width, self.canvas_height = self.canvas_size = run_synchronously(self.client.get_dimensions())
+        self.image_width, self.image_height = self.image_size = len(self.grid[0]), len(self.grid)
+        if self.image_width > self.canvas_width or self.image_height > self.canvas_height:
+            raise OutOfBoundaries(f"Can't draw picture bigger than the canvas ({self.image_size} > {self.canvas_size})")
 
     @staticmethod
     def _grid_from_img(
@@ -78,7 +79,7 @@ class AutoDrawer:
             for y in range(self.y0, self.y1):
                 yield x, y
 
-    def draw_pixel(self, canvas: Canvas, x: int, y: int, show_progress: bool = True) -> bool:
+    async def draw_pixel(self, canvas: Canvas, x: int, y: int, show_progress: bool = True) -> bool:
         """
         Draw a pixel if not already drawn.
 
@@ -88,16 +89,16 @@ class AutoDrawer:
         if canvas[x, y] == color:
             logger.debug(f'Skipping already correct pixel at {x}, {y}.')
             return False
-        self.client.put_pixel(x, y, color, show_progress=show_progress)
+        await self.client.put_pixel(x, y, color, show_progress=show_progress)
         return True
 
-    def draw(self, guard: bool = False, guard_delay: int = 5, show_progress: bool = True):
+    async def draw(self, guard: bool = False, guard_delay: int = 5, show_progress: bool = True):
         """Draw the pixels of the image, attempting each pixel max. once."""
-        canvas = self.client.get_canvas()
+        canvas = await self.client.get_canvas()
         while True:
             for x, y in self._iter_coords():
-                if self.draw_pixel(canvas, x, y, show_progress=show_progress):
-                    canvas = self.client.get_canvas()
+                if await self.draw_pixel(canvas, x, y, show_progress=show_progress):
+                    canvas = await self.client.get_canvas()
 
             if not guard:
                 # Check this here, to act as do-while,
@@ -107,8 +108,8 @@ class AutoDrawer:
             # because otherwise we'd be looping over same non-updated canvas forever
             # since this looping with no changes takes a long time, we should also sleep
             # to avoid needless cpu usage
-            time.sleep(guard_delay)
-            canvas = self.client.get_canvas()
+            await asyncio.sleep(guard_delay)
+            canvas = await self.client.get_canvas()
 
 
 class MultiAutoDrawer:
@@ -181,18 +182,18 @@ class MultiAutoDrawer:
                     continue
                 yield drawer, (x, y)
 
-    def draw(
+    async def draw(
         self,
         guard: bool = False,
         guard_delay: int = 5,
         show_progress: bool = True,
     ):
-        canvas = self.client.get_canvas()
+        canvas = await self.client.get_canvas()
 
         while True:
             for drawer, (x, y) in self.positions_generator():
                 if drawer.draw_pixel(canvas, x, y, show_progress=show_progress):
-                    canvas = self.client.get_canvas()
+                    canvas = await self.client.get_canvas()
             if not guard:
                 # Check this here, to act as do-while,
                 # (always run first time, only continue if this is met)
@@ -201,5 +202,5 @@ class MultiAutoDrawer:
             # because otherwise we'd be looping over same non-updated canvas forever
             # since this looping with no changes takes a long time, we should also sleep
             # to avoid needless cpu usage
-            time.sleep(guard_delay)
-            canvas = self.client.get_canvas()
+            await asyncio.sleep(guard_delay)
+            canvas = await self.client.get_canvas()

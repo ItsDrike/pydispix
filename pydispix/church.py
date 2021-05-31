@@ -1,5 +1,5 @@
+import asyncio
 import logging
-import time
 from abc import abstractmethod
 from dataclasses import dataclass
 from functools import partial
@@ -43,7 +43,7 @@ class ChurchClient(Client):
         return resolve_url_endpoint(self.base_church_url, endpoint)
 
     @abstractmethod
-    def get_task(self, endpoint: str = "get_task", repeat_delay: int = 2) -> ChurchTask:
+    async def get_task(self, endpoint: str = "get_task", repeat_delay: int = 2) -> ChurchTask:
         """
         Get task from the church, this is an abstract method, you'll need
         to override this to get it to work with your church's specific API.
@@ -53,7 +53,7 @@ class ChurchClient(Client):
         """
 
     @abstractmethod
-    def submit_task(self, church_task: ChurchTask, endpoint: str = "submit_task") -> requests.Response:
+    async def submit_task(self, church_task: ChurchTask, endpoint: str = "submit_task") -> requests.Response:
         """
         Submit a task to the church, this is an abstract method, you'll need
         to override this to get it to work with your church's specific API.
@@ -67,7 +67,7 @@ class ChurchClient(Client):
         """
         raise exception
 
-    def run_task(
+    async def run_task(
         self,
         submit_endpoint: str = "submit_task",
         show_progress: bool = False,
@@ -86,13 +86,17 @@ class ChurchClient(Client):
         # This can't just use the `set_pixel`, because we need to send submit message to the church
         # before we wait for the rate limits, this is also why we use `make_raw_request` instead
         # of just using `make_requests` that handles the rate limits for us
-        task = self.get_task(repeat_delay=repeat_delay)
+        task = await self.get_task(repeat_delay=repeat_delay)
         logger.info(f"Running church task: {task}")
 
         # Manual set_pixel, with submit before waiting for rate limits
         url = self.resolve_endpoint("set_pixel")
+        # Make sure this is ran right after we make the `set_pixel` request,
+        # only then wait out the time limits
+        task_after = partial(self.submit_task, task, endpoint=submit_endpoint)
+
         try:
-            response = self.make_request(
+            response = await self.make_request(
                 "POST", url,
                 data={
                     "x": task.x,
@@ -101,7 +105,7 @@ class ChurchClient(Client):
                 },
                 headers=self.headers,
                 ratelimit_after=True,
-                task_after=partial(self.submit_task, task, endpoint=submit_endpoint),
+                task_after=task_after,
                 show_progress=show_progress
             )
         except RateLimitBreached as exc:
@@ -115,10 +119,10 @@ class ChurchClient(Client):
             # likely already expired.
             if repeat_on_ratelimit:
                 logger.warning(f"Hit pixels api ratelimit: {response_text}, waiting it out and ignoring this task.")
-                self.rate_limiter.wait(url, show_progress=show_progress)
+                await self.rate_limiter.wait(url, show_progress=show_progress)
                 # Re-run the task only once, this rate breach should only occur
                 # on initial request, if it happens again, it shouldn't be handled
-                return self.run_task(
+                return await self.run_task(
                     submit_endpoint=submit_endpoint,
                     show_progress=show_progress,
                     repeat_delay=repeat_delay,
@@ -131,7 +135,7 @@ class ChurchClient(Client):
             raise response.task_exception  # type: ignore - since we assigned a task, this will be set by make_request
         return response.task_result  # type: ignore - since we assigned a task, this will be set by make_request
 
-    def run_tasks(
+    async def run_tasks(
         self,
         submit_endpoint: str = "submit_task",
         show_progress: bool = False,
@@ -144,7 +148,7 @@ class ChurchClient(Client):
         """
         while True:
             try:
-                self.run_task(
+                await self.run_task(
                     submit_endpoint=submit_endpoint,
                     show_progress=show_progress,
                     repeat_delay=repeat_delay
@@ -162,6 +166,6 @@ class ChurchClient(Client):
                     # occurs relatively often with some churches
                     if e.response.status_code in (500, 502):
                         logger.exception(f"The Church server is down, waiting {repeat_delay}s", exc_info=e)
-                        time.sleep(repeat_delay)
+                        await asyncio.sleep(repeat_delay)
                     else:
                         raise e

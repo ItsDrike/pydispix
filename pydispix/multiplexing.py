@@ -46,9 +46,8 @@ class DistributedAutoDrawer(AutoDrawer):
 
     def _iter_coords(self) -> Iterator[Tuple[int, int]]:
         iter_coords = super()._iter_coords()
-        width, _ = self.client.get_dimensions()
         for x, y in iter_coords:
-            pixel_no = y * width + x
+            pixel_no = y * self.canvas_width + x
             task_no = pixel_no % self.client.total_tasks
             if task_no in self.client.controlled_tasks:
                 yield x, y

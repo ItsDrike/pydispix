@@ -41,18 +41,19 @@ class RickChurchClient(ChurchClient):
     ):
         super().__init__(pixel_api_token, church_token, base_church_url, *args, **kwargs)
 
-    def get_task(self, repeat_delay: int = 2) -> RickChurchTask:
+    async def get_task(self, repeat_delay: int = 2) -> RickChurchTask:
         url = self.resolve_church_endpoint("get_task")
         while True:
-            response = self.make_request("GET", url, params={"key": self.church_token}).json()
+            response = await self.make_request("GET", url, params={"key": self.church_token})
+            task = response.json()["task"]
 
-            if response["task"] is None:
+            if task is None:
                 logger.info(f"Church doesn't currently have any aviable tasks, waiting {repeat_delay}s")
                 time.sleep(repeat_delay)
                 continue
-            return RickChurchTask(**response["task"])
+            return RickChurchTask(**task)
 
-    def submit_task(self, church_task: RickChurchTask, endpoint: str = "submit_task") -> requests.Response:
+    async def submit_task(self, church_task: RickChurchTask, endpoint: str = "submit_task") -> requests.Response:
         url = self.resolve_church_endpoint(endpoint)
         body = {
             'project_title': church_task.project_title,
@@ -61,10 +62,11 @@ class RickChurchClient(ChurchClient):
             'y': church_task.y,
             'color': church_task.color
         }
-        req = self.make_request("POST", url, data=body, params={"key": self.church_token})
-        completed_tasks = self.get_personal_stats()["goodTasks"]
+        response = await self.make_request("POST", url, data=body, params={"key": self.church_token})
+        stats = await self.get_personal_stats()
+        completed_tasks = stats["goodTasks"]
         logger.info(f"Task submitted to the church (tasks complete={completed_tasks}")
-        return req
+        return response
 
     def _handle_church_task_errors(self, exception: Exception) -> None:
         """
@@ -129,30 +131,35 @@ class RickChurchClient(ChurchClient):
 
     # region: Add some misc endpoints which Church of Rick provides
 
-    def get_personal_stats(self):
+    async def get_personal_stats(self):
         """Get personal stats."""
         url = self.resolve_church_endpoint("user/stats")
-        return self.make_request("GET", url, params={"key": self.church_token}).json()
+        response = await self.make_request("GET", url, params={"key": self.church_token})
+        return response.json()
 
-    def get_church_stats(self):
+    async def get_church_stats(self):
         """Get church stats."""
         url = self.resolve_church_endpoint("overall_stats")
-        return self.make_request("GET", url).json()
+        response = await self.make_request("GET", url)
+        return response.json()
 
-    def get_leaderboard(self) -> list:
+    async def get_leaderboard(self) -> list:
         """Get church leaderboard."""
         url = self.resolve_church_endpoint("leaderboard")
-        return self.make_request("GET", url).json()["leaderboard"]
+        response = await self.make_request("GET", url)
+        return response.json()["leaderboard"]
 
-    def get_uptime(self) -> float:
+    async def get_uptime(self) -> float:
         """Uptime of the church of rick."""
         url = self.resolve_church_endpoint("leaderboard")
-        return float(self.make_request("GET", url).json()["uptime"])
+        response = await self.make_request("GET", url)
+        return float(response.json()["uptime"])
 
-    def get_projects(self) -> list:
+    async def get_projects(self) -> list:
         """Get project data from the church."""
         url = self.resolve_church_endpoint("projects/stats")
-        return self.make_request("GET", url).json()
+        response = await self.make_request("GET", url)
+        return response.json()
 
     # endregion
 
@@ -171,24 +178,25 @@ class SQLiteChurchClient(ChurchClient):
         church_token = ""
         super().__init__(pixel_api_token, church_token, base_church_url, *args, **kwargs)
 
-    def get_task(self, endpoint: str = "tasks", repeat_delay: int = 2) -> SQLiteChurchTask:
+    async def get_task(self, endpoint: str = "tasks", repeat_delay: int = 2) -> SQLiteChurchTask:
         url = self.resolve_church_endpoint(endpoint)
         while True:
-            response = self.make_request("GET", url).json()
+            response = await self.make_request("GET", url)
+            data = response.json()
 
-            if len(response) == 0:
+            if len(data) == 0:
                 logger.info(f"Church doesn't currently have any aviable tasks, waiting {repeat_delay}s")
                 time.sleep(repeat_delay)
                 continue
             # SQLite church returns a list of aviable tasks to complete, it doesn't assign
             # specific tasks to members, since there is no unique API key. Best we can do is
             # Therefore to pick a task randomly from this list
-            task = random.choice(response)
+            task = random.choice(data)
             return SQLiteChurchTask(**task)
 
-    def submit_task(self, church_task: SQLiteChurchTask, endpoint: str = "submit_task") -> requests.Response:
+    async def submit_task(self, church_task: SQLiteChurchTask, endpoint: str = "submit_task") -> requests.Response:
         url = self.resolve_church_endpoint(endpoint)
         body = {"task_id": church_task.id}
-        req = self.make_request("POST", url, data=body)
+        response = await self.make_request("POST", url, data=body)
         logger.info("Task submitted to the church")
-        return req
+        return response

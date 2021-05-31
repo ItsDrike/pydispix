@@ -80,7 +80,7 @@ class Client:
 
         return response
 
-    def make_request(
+    async def make_request(
         self, method: str, url: str, *,
         data: Optional[dict] = None,
         params: Optional[dict] = None,
@@ -104,7 +104,7 @@ class Client:
         ratelimit_after`, since there's no point in using it if we wait out the rate limit first.
         The result of this task will be stored in the response under `task_result` variable.
         In case any exception would occur in this task, it will be handled and stored in
-        in the response under `task_exception` variable.
+        in the response under `task_exception` variable. Note: This task should be an awaitable.
 
         `head_ratelimit_update`: Some APIs allow sending HEAD type requests, which don't actually
         trigger interfere with the API, and are here purely to obtain the rate limits, so that we
@@ -127,7 +127,7 @@ class Client:
         if not ratelimit_after:
             if head_ratelimit_update:
                 self.make_raw_request("HEAD", url, headers=headers, update_rate_limits=True)
-            self.rate_limiter.wait(url, show_progress=show_progress)
+            await self.rate_limiter.wait(url, show_progress=show_progress)
 
         try:
             response = self.make_raw_request(
@@ -142,7 +142,7 @@ class Client:
                 logger.warning(f"Hit rate limit, repeating request ({exc.response.content})")
                 # There's no point in using `head_ratelimit_update` here, since the failed
                 # request has already updated the rate limits.
-                return self.make_request(
+                return await self.make_request(
                     method, url,
                     data=data,
                     params=params,
@@ -155,14 +155,14 @@ class Client:
 
         if task_after:
             try:
-                result = task_after()
+                result = await task_after()
             except Exception as exc:
                 response.task_exception = exc  # type: ignore - type is unknown, because it's a new property we're adding
             else:
                 response.task_result = result  # type: ignore - type is unknown, because it's a new property we're adding
 
         if ratelimit_after:
-            self.rate_limiter.wait(url, show_progress=show_progress)
+            await self.rate_limiter.wait(url, show_progress=show_progress)
 
         return response
 
@@ -170,30 +170,33 @@ class Client:
         """Resolve given `endpoint` to use the base_url"""
         return resolve_url_endpoint(self.base_url, endpoint)
 
-    def get_dimensions(self) -> Dimensions:
+    async def get_dimensions(self) -> Dimensions:
         """Make a request to obtain the canvas dimensions"""
         url = self.resolve_endpoint("get_size")
-        data = self.make_request("GET", url).json()
+        response = await self.make_request("GET", url)
+        data = response.json()
         return Dimensions(width=data["width"], height=data["height"])
 
-    def get_canvas(self, show_progress: bool = False) -> Canvas:
+    async def get_canvas(self, show_progress: bool = False) -> Canvas:
         """Fetch the whole canvas and return it in a `Canvas` object."""
         url = self.resolve_endpoint("get_pixels")
-        data = self.make_request("GET", url, headers=self.headers, show_progress=show_progress).content
-        size = self.get_dimensions()
+        response = await self.make_request("GET", url, headers=self.headers, show_progress=show_progress)
+        data = response.json()
+        size = await self.get_dimensions()
         return Canvas(size, data)
 
-    def get_pixel(self, x: int, y: int, show_progress: bool = False) -> Pixel:
+    async def get_pixel(self, x: int, y: int, show_progress: bool = False) -> Pixel:
         """Fetch rgb data about a specific pixel"""
         url = self.resolve_endpoint("get_pixel")
-        data = self.make_request(
+        response = await self.make_request(
             "GET", url, params={"x": x, "y": y}, headers=self.headers,
             show_progress=show_progress
-        ).json()
+        )
+        data = response.json()
         hex_color = data["rgb"]
         return Pixel.from_hex(hex_color)
 
-    def put_pixel(
+    async def put_pixel(
         self,
         x: int, y: int,
         color: ResolvableColor,
@@ -208,7 +211,7 @@ class Client:
         waiting for the rate limitation
         """
         url = self.resolve_endpoint("set_pixel")
-        data = self.make_request(
+        response = await self.make_request(
             "POST", url,
             data={
                 "x": x,
@@ -220,6 +223,6 @@ class Client:
             show_progress=show_progress,
         )
 
-        msg = data.json()["message"]
+        msg = response.json()["message"]
         logger.info(f"Success: {msg}")
         return msg
