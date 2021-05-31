@@ -93,4 +93,4 @@ jobs:
         [flake8] %(code)s: %(text)s'"
 
       - name: Run pyright type checking
-        run: pipenv run pyright -v $PYTHONUSERBASE
+        run: pyright -v $PYTHONUSERBASE
