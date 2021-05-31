@@ -60,28 +60,6 @@ class AutoDrawer:
         ]
         return cls(client, *xy, grid)
 
-    @classmethod
-    def load(cls, client: Client, data: str) -> 'AutoDrawer':
-        """Draw from a string that specifies the pixels.
-        `data` should be a multi-line string. The first two lines are the x
-        and y coordinates of the top left of the image to draw. The second two
-        are the width and height of the image. The rest of the lines are the
-        pixels of the image, as hex codes (horizontal scanlines, left-to-right
-        top-to-bottom).
-        """
-        lines = data.split('\n')
-        x = int(lines.pop(0))
-        y = int(lines.pop(0))
-        width = int(lines.pop(0))
-        height = int(lines.pop(0))
-        grid = []
-        for _ in range(height):
-            row = []
-            for _ in range(width):
-                row.append(Pixel.from_hex(lines.pop(0)))
-            grid.append(row)
-        return cls(client, x, y, grid)
-
     def _iter_coords(self) -> Iterator[Tuple[int, int]]:
         """Iterate over the coordinates of the image."""
         for x in range(self.x0, self.x1):
