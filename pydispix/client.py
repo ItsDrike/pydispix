@@ -44,6 +44,8 @@ class Client:
         """
         logger.debug(f"Request: {method} on {url} {data=} {params=}.")
 
+        if headers is None:
+            headers = {}
         # Set the user-agent, if not set to something else
         headers.setdefault("User-Agent", "ItsDrike pydispix")
 
