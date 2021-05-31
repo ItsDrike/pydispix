@@ -25,11 +25,8 @@ client = pydispix.Client()
 # Fetch the canvas
 canvas = client.get_canvas()
 
-# Show the canvas using PIL
-canvas.show()
-
 # Show the canvas using matplotlib, this will include coordinates
-canvas.mpl_show()
+canvas.show()
 
 # Save the canvas to a file
 canvas.save('canvas.png')
