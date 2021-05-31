@@ -85,6 +85,19 @@ class Canvas:
         x, y = xy
         return self.grid[y][x]
 
+    def __iter__(self) -> "Canvas":
+        self.iter_pixel = 0
+        return self
+
+    def __next__(self) -> Pixel:
+        y = self.iter_pixel // self.width
+        x = self.iter_pixel % self.width
+        self.iter_pixel += 1
+        try:
+            return self.grid[y][x]
+        except IndexError:
+            raise StopIteration
+
     def show(self):
         """Display the image with matplotlib."""
         plt.imshow(self.image)
