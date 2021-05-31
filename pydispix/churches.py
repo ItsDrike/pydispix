@@ -86,7 +86,7 @@ class RickChurchClient(ChurchClient):
                 return super()._handle_church_task_errors(exception)
 
             # Log the exception and proceed cleanly
-            logger.warn(f"Church task failed, task disassigned, submitting took over {match.groups()[0]} seconds")
+            logger.warning(f"Church task failed, task disassigned, submitting took over {match.groups()[0]} seconds")
         elif isinstance(exception, requests.HTTPError):
             try:
                 detail: str = get_response_result(exception, "detail", error_on_fail=True)  # type: ignore - if it's not str, we handle it
@@ -100,7 +100,7 @@ class RickChurchClient(ChurchClient):
                     return super()._handle_church_task_errors(exception)
 
                 # Log the exception and proceed cleanly
-                logger.warn("Church task failed, this task already got reassigned to somebody else.")
+                logger.warning("Church task failed, this task already got reassigned to somebody else.")
             elif exception.response.status_code == 400:
                 msg = (
                     "You did not complete this task properly, or it was fixed before the server could verify it. "
@@ -111,7 +111,7 @@ class RickChurchClient(ChurchClient):
                     return super()._handle_church_task_errors(exception)
 
                 # Log the exception and proceed cleanly
-                logger.warn("Church task failed, check failed, someone has overwritten the pixel before we could submit it.")
+                logger.warning("Church task failed, check failed, someone has overwritten the pixel before we could submit it.")
         elif isinstance(exception, requests.exceptions.SSLError):
             url = exception.request.url
             if not url.startswith(self.base_church_url):
@@ -119,7 +119,7 @@ class RickChurchClient(ChurchClient):
                 return super()._handle_church_task_errors(exception)
 
             # Log the exception and proceed cleanly
-            logger.warn("Church task failed, SSL Error: Church of rick's SSL certificate wasn't valid. For some reason this sometimes occurs.")
+            logger.warning("Church task failed, SSL Error: Church of rick's SSL certificate wasn't valid. For some reason this sometimes occurs.")
         else:
             # If we didn't find a rich church specific exception,
             # call the super's implementation of this, there could
