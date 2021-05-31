@@ -64,10 +64,6 @@ class OutOfBoundaries(PyDisPixError):
     """Status code 422 - tried to draw a pixel outside of the canvas"""
 
 
-class NoFreeClient(PyDisPixError):
-    """There is no aviable client (with MultiClient)."""
-
-
 def handle_invalid_body(response: requests.Response) -> Union[PyDisPixError, requests.HTTPError]:
     """
     Handle 442 (invalid body) error code. This code can mean many things,
