@@ -30,6 +30,7 @@ class SQLiteChurchTask(ChurchTask):
 
 class RickChurchClient(ChurchClient):
     """Church Client designed to work specifically with rick church"""
+
     def __init__(
         self,
         pixel_api_token: str,
@@ -158,6 +159,7 @@ class RickChurchClient(ChurchClient):
 
 class SQLiteChurchClient(ChurchClient):
     """Church Client designed to work specifically with rick church"""
+
     def __init__(
             self,
             pixel_api_token: str,

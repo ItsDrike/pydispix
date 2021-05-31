@@ -7,6 +7,7 @@ import PIL.Image
 
 from pydispix.canvas import Canvas, Pixel
 from pydispix.client import Client
+from pydispix.errors import OutOfBoundaries
 
 logger = logging.getLogger('pydispix')
 
@@ -97,7 +98,3 @@ class AutoDrawer:
             # to avoid needless cpu usage
             time.sleep(guard_delay)
             canvas = self.client.get_canvas()
-
-
-class OutOfBoundaries(Exception):
-    """Pixel we tried to draw is out of canvas boundaries"""

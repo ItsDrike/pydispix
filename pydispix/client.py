@@ -15,6 +15,7 @@ logger = logging.getLogger("pydispix")
 
 class Client:
     """HTTP client to the pixel API."""
+
     def __init__(self, token: Optional[str] = None, base_url: str = "https://pixels.pythondiscord.com/"):
         if token is None:
             try:
