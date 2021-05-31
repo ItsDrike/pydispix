@@ -126,6 +126,8 @@ class RickChurchClient(ChurchClient):
             # be some other common errors
             return super()._handle_church_task_errors(exception)
 
+    # region: Add some misc endpoints which Church of Rick provides
+
     def get_personal_stats(self):
         """Get personal stats."""
         url = self.resolve_church_endpoint("user/stats")
@@ -150,6 +152,8 @@ class RickChurchClient(ChurchClient):
         """Get project data from the church."""
         url = self.resolve_church_endpoint("projects/stats")
         return self.make_request("GET", url).json()
+
+    # endregion
 
 
 class SQLiteChurchClient(ChurchClient):
