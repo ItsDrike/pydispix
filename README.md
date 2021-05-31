@@ -1,15 +1,11 @@
 # PyDisPix
 
-
 [![made-with-python](https://img.shields.io/badge/Made%20with-Python%203.8+-ffe900.svg?longCache=true&style=flat-square&colorB=00a1ff&logo=python&logoColor=88889e)](https://www.python.org/)
 [![MIT](https://img.shields.io/badge/Licensed%20under-MIT-red.svg?style=flat-square)](./LICENSE)
 [![Validation](https://github.com/ItsDrike/pydispix/actions/workflows/validation.yml/badge.svg)](https://github.com/ItsDrike/pydispix/actions/workflows/validation.yml)
 
 A simple wrapper around [Python Discord Pixels](https://pixels.pythondiscord.com).
-
-Requires Python 3.8+ (3.x where x >= 8).
-
-Requires pip dependencies listed in [`pyproject.toml`](pyproject.toml).
+Check it out on [PyPI](https://pypi.org/project/pydispix/).
 
 ## Examples
 
@@ -62,30 +58,6 @@ ad = pydispix.AutoDrawer.load_image(client, (5, 40), im, scale=0.1)
 ad.draw()
 ```
 
-To prefer fixing existing pixels to placing new ones:
-
-```py
-ad = pydispix.AutoDrawer.load(client, '''0
-0
-3
-2
-ff0000
-00ff00
-0000ff
-ff0000
-00ff00
-0000ff''')
-ad.draw()
-```
-
-Format of the drawing plan:
-
-- Leftmost X coordinate
-- Topmost Y coordinate
-- Width
-- Height
-- Each pixel, left-to-right, top-to-bottom.
-
 Auto-draw will avoid colouring already correct pixels, for efficiency.
 
 You can also run this continually with `guard=True` which makes sure that after your image
@@ -96,7 +68,7 @@ pixels.
 ad.draw(guard=True, guard_delay=2)
 ```
 
-Guard delay is the delay between each full iteration of all pixels. We need to wait since
+`guard_delay` is the delay between each full iteration of all pixels. We need to wait since
 looping without any changes is almost instant in python, and we don't want to put cpu through that
 stress for no reason
 
@@ -127,11 +99,11 @@ client.run_task()
 ### Continually running church tasks
 
 If you wish to keep running church tasks continually in a loop, make sure to use `client.run_tasks()`,
-don't use `client.run_task()` since it doesn't have any error handling. Churches often raise errors
-in certain situations, and using `client.run_tasks()` will ensure they're handled cleanly.
+avoid `client.run_task()` since it doesn't handle any errors specific to the used church,
+`client.run_tasks()` will handle these errors cleanly and log the problems if some ocurred.
 
-Note: `client.run_tasks()` only handles known exceptions, there might still be some exceptions that a
-church could raise which aren't handled. If you manage to find one make sure to file an issue about it.
+Note: `client.run_tasks()` only handles known exceptions, there might still be some exceptions that a church
+could raise which aren't handled. If you manage to find one make sure to file an issue about it.
 
 Example of safe continual script to keep running church tasks on your machine:
 
@@ -145,9 +117,6 @@ exception_amt = 0
 while True:
     try:
         client.run_tasks(show_progress=True)
-    except KeyboardInterrupt as exc:
-        print(exceptions)
-        raise exc
     except Exception as exc:
         print(f"Exception ocurred: {exc} (#{exception_amt})")
         with open(f"exception{exception_amt}.pickle", "wb") as f:
@@ -174,11 +143,14 @@ raise exc
 **Important: do not upload the pickle file anywhere, it contains the request, which includes your
 API keys, uploading the pickled file would inevitable lead to leaked API key.**
 
-### Custom churches
+### Other churches
 
 You can also implement your own church according to it's specific API requirements, if you're
 interested in doing this, check the [church.py](pydispix/church.py) and how the specific churches
 are implemented using it: [churches.py](pydispix/churches.py).
+
+If you do end up implementing it, feel free to also open a pull request and add it, if the church
+is popular enough, you have a good chance of it being added to official `pydispix`.
 
 ### Progress bars
 
