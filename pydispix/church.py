@@ -99,6 +99,7 @@ class ChurchClient(Client):
                     "y": task.y,
                     "rgb": parse_color(task.color)
                 },
+                headers=self.headers,
                 ratelimit_after=True,
                 task_after=partial(self.submit_task, task, endpoint=submit_endpoint),
                 show_progress=show_progress

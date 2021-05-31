@@ -27,16 +27,14 @@ class Client:
 
         self.token = token
         self.base_url = base_url
-        self.headers = {
-            "Authorization": "Bearer " + token,
-            "User-Agent": "ItsDrike pydispix",
-        }
+        self.headers = {"Authorization": "Bearer " + token}
         self.rate_limiter = RateLimiter()
 
     def make_raw_request(
         self, method: str, url: str, *,
         data: Optional[dict] = None,
         params: Optional[dict] = None,
+        headers: Optional[dict] = None,
         update_rate_limits: bool = True,
     ) -> requests.Response:
         """
@@ -44,11 +42,15 @@ class Client:
         Even though this will update the rate limtis, it will not wait for them.
         """
         logger.debug(f"Request: {method} on {url} {data=} {params=}.")
+
+        # Set the user-agent, if not set to something else
+        headers.setdefault("User-Agent", "ItsDrike pydispix")
+
         response = requests.request(
             method, url,
             json=data,
             params=params,
-            headers=self.headers
+            headers=headers
         )
 
         if update_rate_limits:
@@ -78,6 +80,7 @@ class Client:
         self, method: str, url: str, *,
         data: Optional[dict] = None,
         params: Optional[dict] = None,
+        headers: Optional[dict] = None,
         ratelimit_after: bool = False,
         task_after: Optional[Callable] = None,
         head_ratelimit_update: bool = False,
@@ -119,13 +122,15 @@ class Client:
 
         if not ratelimit_after:
             if head_ratelimit_update:
-                self.make_raw_request("HEAD", url, update_rate_limits=True)
+                self.make_raw_request("HEAD", url, headers=headers, update_rate_limits=True)
             self.rate_limiter.wait(url, show_progress=show_progress)
 
         try:
             response = self.make_raw_request(
                 method, url,
-                data=data, params=params,
+                data=data,
+                params=params,
+                headers=headers,
                 update_rate_limits=True
             )
         except RateLimitBreached as exc:
@@ -135,7 +140,9 @@ class Client:
                 # request has already updated the rate limits.
                 return self.make_request(
                     method, url,
-                    data=data, params=params,
+                    data=data,
+                    params=params,
+                    headers=headers,
                     ratelimit_after=False,
                     task_after=task_after, head_ratelimit_update=False,
                     repeat_on_ratelimit=False, show_progress=show_progress
@@ -168,14 +175,17 @@ class Client:
     def get_canvas(self, show_progress: bool = False) -> Canvas:
         """Fetch the whole canvas and return it in a `Canvas` object."""
         url = self.resolve_endpoint("get_pixels")
-        data = self.make_request("GET", url, show_progress=show_progress).content
+        data = self.make_request("GET", url, headers=self.headers, show_progress=show_progress).content
         size = self.get_dimensions()
         return Canvas(size, data)
 
     def get_pixel(self, x: int, y: int, show_progress: bool = False) -> Pixel:
         """Fetch rgb data about a specific pixel"""
         url = self.resolve_endpoint("get_pixel")
-        data = self.make_request("GET", url, params={"x": x, "y": y}, show_progress=show_progress).json()
+        data = self.make_request(
+            "GET", url, params={"x": x, "y": y}, headers=self.headers,
+            show_progress=show_progress
+        ).json()
         hex_color = data["rgb"]
         return Pixel.from_hex(hex_color)
 
@@ -201,6 +211,7 @@ class Client:
                 "y": y,
                 "rgb": parse_color(color)
             },
+            headers=self.headers,
             head_ratelimit_update=True,
             show_progress=show_progress,
         )
