@@ -128,7 +128,8 @@ class RickChurchClient(ChurchClient):
             # be some other common errors
             return super()._handle_church_task_errors(exception)
 
-    # Add some misc endpoints which Church of Rick provides
+    # region: Add some misc endpoints which Church of Rick provides
+
     async def async_get_personal_stats(self) -> dict:
         """Get personal stats."""
         url = self.resolve_church_endpoint("user/stats")
@@ -164,6 +165,8 @@ class RickChurchClient(ChurchClient):
     get_leaderboard = unsync(async_get_leaderboard)
     get_uptime = unsync(async_get_uptime)
     get_projects = unsync(async_get_projects)
+
+    # endregion
 
 
 class SQLiteChurchClient(ChurchClient):
