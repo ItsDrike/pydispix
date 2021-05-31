@@ -9,7 +9,7 @@ A simple wrapper around [Python Discord Pixels](https://pixels.pythondiscord.com
 
 Requires Python 3.8+ (3.x where x >= 8).
 
-Requires pip dependencies listed in [`Pipfile`](Pipfile).
+Requires pip dependencies listed in [`pyproject.toml`](pyproject.toml).
 
 ## Example
 
