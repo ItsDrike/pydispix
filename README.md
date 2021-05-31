@@ -72,6 +72,31 @@ ad.draw(guard=True, guard_delay=2)
 looping without any changes is almost instant in python, and we don't want to put cpu through that
 stress for no reason
 
+### Collaborate on image drawing
+
+You can share the load of drawing a single image between multiple joined clients.
+This will mean each client will only ever work on it's part of given image, both when guarding and drawing it.
+
+```py
+from PIL import Image
+from pydispix import MultiClient, MultiAutoDrawer
+
+# First machine
+multi_client = MultiClient('pixels_api_key', total_tasks=2 ,controlled_tasks=[0])
+# Second machine
+#multi_client = MultiClient('pixels_api_key2', total_tasks=2 ,controlled_tasks=[1])
+
+image = Image.open('my_img.png')
+auto_drawer = MultiAutoDrawer.load_image(multi_client, (2, 10), image, scale=0.8)
+auto_drawer.draw(guard=True)
+```
+
+`total_tasks` is the number of clients you will have in total, i.e. the number of workers
+for shared tasks. It's how many groups will the shared pixels be split into.
+
+`controlled_tasks` are the groups controlled by this `MultiClient` instance. This is usually
+only 1 task, but you can specify multiple tasks and split the code further.
+
 ### Churches
 
 Churches are groups of people collaborating on some image, or set of images on the canvas.
