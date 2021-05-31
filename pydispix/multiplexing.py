@@ -8,7 +8,7 @@ from pydispix.color import Pixel
 logger = logging.getLogger('pydispix')
 
 
-class MultiClient(Client):
+class DistributedClient(Client):
     def __init__(
         self,
         token: Optional[str] = None,
@@ -38,11 +38,11 @@ class MultiClient(Client):
         self.controlled_tasks = controlled_tasks
 
 
-class MultiAutoDrawer(AutoDrawer):
-    def __init__(self, client: MultiClient, x: int, y: int, grid: List[List[Pixel]]):
+class DistributedAutoDrawer(AutoDrawer):
+    def __init__(self, client: DistributedClient, x: int, y: int, grid: List[List[Pixel]]):
         super().__init__(client, x, y, grid)
         # Redefine client for proper type highlights
-        self.client: MultiClient = client
+        self.client: DistributedClient = client
 
     def _iter_coords(self) -> Iterator[Tuple[int, int]]:
         iter_coords = super()._iter_coords()

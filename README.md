@@ -72,6 +72,28 @@ ad.draw(guard=True, guard_delay=2)
 looping without any changes is almost instant in python, and we don't want to put cpu through that
 stress for no reason
 
+### Draw multiple images
+
+You can also draw multiple images one by one
+
+```py
+from PIL import Image
+from pydispix import Client, AutoDrawer
+
+client = Client("pixels_api_token")
+
+positions = [(52, 14), (120, 54)]
+images = [Image("img1.png"), Image("img2.png")]
+scales = [0.5, 1]
+
+ad = AutoDrawer.load_images(client, positions, images, scales, one_by_one=True)
+ad.draw()
+```
+
+This will proceed to start drawing the images in order they were passed. You could also
+set `one_by_one` to `False`, which would cause the images to instead be drawn by pixel
+from each, i.e. 1st pixel from img1, 1st pixel from img2, 2nd from img1, 2nd from img2, ...
+
 ### Collaborate on image drawing
 
 You can share the load of drawing a single image between multiple joined clients.
@@ -79,15 +101,15 @@ This will mean each client will only ever work on it's part of given image, both
 
 ```py
 from PIL import Image
-from pydispix import MultiClient, MultiAutoDrawer
+from pydispix import DistributedClient, DistributedAutoDrawer
 
 # First machine
-multi_client = MultiClient('pixels_api_key', total_tasks=2 ,controlled_tasks=[0])
+multi_client = DistributedClient('pixels_api_key', total_tasks=2 ,controlled_tasks=[0])
 # Second machine
 #multi_client = MultiClient('pixels_api_key2', total_tasks=2 ,controlled_tasks=[1])
 
 image = Image.open('my_img.png')
-auto_drawer = MultiAutoDrawer.load_image(multi_client, (2, 10), image, scale=0.8)
+auto_drawer = DistributedAutoDrawer.load_image(multi_client, (2, 10), image, scale=0.8)
 auto_drawer.draw(guard=True)
 ```
 
