@@ -3,7 +3,7 @@
 
 [![made-with-python](https://img.shields.io/badge/Made%20with-Python%203.8+-ffe900.svg?longCache=true&style=flat-square&colorB=00a1ff&logo=python&logoColor=88889e)](https://www.python.org/)
 [![MIT](https://img.shields.io/badge/Licensed%20under-MIT-red.svg?style=flat-square)](./LICENSE)
-[![Vaildation](https://github.com/ItsDrike/pydispix/actions/workflows/validation.yml/badge.svg)](https://github.com/ItsDrike/pydispix/actions/workflows/validation.yml)
+[![Validation](https://github.com/ItsDrike/pydispix/actions/workflows/validation.yml/badge.svg)](https://github.com/ItsDrike/pydispix/actions/workflows/validation.yml)
 
 A simple wrapper around [Python Discord Pixels](https://pixels.pythondiscord.com).
 
