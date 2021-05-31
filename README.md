@@ -134,6 +134,7 @@ Example of safe continual script to keep running church tasks on your machine:
 
 ```py
 import pickle
+import time
 from pydispix.churches import RickChurchClient
 
 client = RickChurchClient(pixels_api_token, rick_church_api_token)
@@ -147,6 +148,7 @@ while True:
         with open(f"exception{exception_amt}.pickle", "wb") as f:
             pickle.dump(exc, f)
         exception_amt += 1
+        time.sleep(5)
 ```
 
 There is still exception handling here, but it shouldn't capture any, it's only here since you'll
