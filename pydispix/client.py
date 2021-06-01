@@ -223,3 +223,5 @@ class Client:
         msg = data.json()["message"]
         logger.info(f"Success: {msg}")
         return msg
+
+    set_pixel = put_pixel
