@@ -1,11 +1,10 @@
 name: Publish to PyPI
 on:
-  push:
+  workflow_run:
+    workflows: ["Validation"]
+    types: ["completed"]
     branches: ["main"]
-    paths:
-      - pyproject.toml
-      - setup.cfg
-      - setup.py
+    paths: ["pyproject.toml"]
 
 env:
   POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}

@@ -1,9 +1,22 @@
 [tool.poetry]
 name = "pydispix"
-version = "1.2.0"
-description = "API wrapper for python-discord's pixels."
+version = "1.2.1"
 authors = ["ItsDrike <itsdrikeofficial@gmail.com>"]
+description = "API wrapper for python-discord's pixels."
+readme = "README.md"
+repository = "https://github.com/ItsDrike/pydispix"
 license = "MIT"
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
+packages = [
+    { include = "pydispix" }
+]
 
 [tool.poetry.dependencies]
 python = "3.8.*"
