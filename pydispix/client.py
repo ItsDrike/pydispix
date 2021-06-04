@@ -181,7 +181,7 @@ class Client:
         """Fetch the whole canvas and return it in a `Canvas` object."""
         url = self.resolve_endpoint("get_pixels")
         response = await self.make_request("GET", url, headers=self.headers, show_progress=show_progress)
-        data = response.json()
+        data = response.content
         size = await self.get_dimensions()
         return Canvas(size, data)
 
