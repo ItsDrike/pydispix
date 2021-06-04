@@ -180,7 +180,7 @@ class Client:
     async def get_canvas(self, show_progress: bool = False) -> Canvas:
         """Fetch the whole canvas and return it in a `Canvas` object."""
         url = self.resolve_endpoint("get_pixels")
-        response = await self.make_request("GET", url, headers=self.headers, show_progress=show_progress)
+        response = await self.make_request("GET", url, headers=self.headers, show_progress=show_progress, head_ratelimit_update=True)
         data = response.content
         size = await self.get_dimensions()
         return Canvas(size, data)
@@ -190,7 +190,7 @@ class Client:
         url = self.resolve_endpoint("get_pixel")
         response = await self.make_request(
             "GET", url, params={"x": x, "y": y}, headers=self.headers,
-            show_progress=show_progress
+            show_progress=show_progress, head_ratelimit_update=True
         )
         data = response.json()
         hex_color = data["rgb"]
