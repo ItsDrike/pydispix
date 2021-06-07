@@ -43,7 +43,7 @@ class ChurchClient(Client):
         return resolve_url_endpoint(self.base_church_url, endpoint)
 
     @abstractmethod
-    def get_task(self, endpoint: str = "get_task", repeat_delay: int = 2) -> ChurchTask:
+    def get_task(self, repeat_delay: int = 2) -> ChurchTask:
         """
         Get task from the church, this is an abstract method, you'll need
         to override this to get it to work with your church's specific API.
@@ -53,7 +53,7 @@ class ChurchClient(Client):
         """
 
     @abstractmethod
-    def submit_task(self, church_task: ChurchTask, endpoint: str = "submit_task") -> requests.Response:
+    def submit_task(self, church_task: ChurchTask) -> requests.Response:
         """
         Submit a task to the church, this is an abstract method, you'll need
         to override this to get it to work with your church's specific API.
@@ -69,7 +69,6 @@ class ChurchClient(Client):
 
     def run_task(
         self,
-        submit_endpoint: str = "submit_task",
         show_progress: bool = False,
         repeat_delay: int = 2,
         repeat_on_ratelimit: bool = True,
@@ -101,7 +100,7 @@ class ChurchClient(Client):
                 },
                 headers=self.headers,
                 ratelimit_after=True,
-                task_after=partial(self.submit_task, task, endpoint=submit_endpoint),
+                task_after=partial(self.submit_task, task),
                 show_progress=show_progress
             )
         except RateLimitBreached as exc:
@@ -119,7 +118,6 @@ class ChurchClient(Client):
                 # Re-run the task only once, this rate breach should only occur
                 # on initial request, if it happens again, it shouldn't be handled
                 return self.run_task(
-                    submit_endpoint=submit_endpoint,
                     show_progress=show_progress,
                     repeat_delay=repeat_delay,
                     repeat_on_ratelimit=False
@@ -133,7 +131,6 @@ class ChurchClient(Client):
 
     def run_tasks(
         self,
-        submit_endpoint: str = "submit_task",
         show_progress: bool = False,
         repeat_delay: int = 2
     ):
@@ -145,7 +142,6 @@ class ChurchClient(Client):
         while True:
             try:
                 self.run_task(
-                    submit_endpoint=submit_endpoint,
                     show_progress=show_progress,
                     repeat_delay=repeat_delay
                 )

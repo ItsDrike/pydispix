@@ -1,6 +1,5 @@
 import logging
 import random
-import re
 import time
 from dataclasses import dataclass
 from json.decoder import JSONDecodeError
@@ -8,18 +7,17 @@ from json.decoder import JSONDecodeError
 import requests
 
 from pydispix.church import ChurchClient, ChurchTask
-from pydispix.errors import RateLimitBreached, get_response_result
+from pydispix.errors import get_response_result
 
 logger = logging.getLogger("pydispix")
 
 SQLITE_CHURCH = "https://decorator-factory.su"
-RICK_CHURCH = "https://pixel-tasks.scoder12.repl.co/api"
+RICK_CHURCH = "http://localhost:8000"
 
 
 @dataclass
 class RickChurchTask(ChurchTask):
-    project_title: str
-    start: float
+    project_name: str
 
 
 @dataclass
@@ -39,33 +37,33 @@ class RickChurchClient(ChurchClient):
         **kwargs
     ):
         super().__init__(pixel_api_token, church_token, base_church_url, *args, **kwargs)
-        self.church_headers = {
-            "key": self.church_token
-        }
+        self.church_headers = {"Authorization": f"Bearer {self.church_token}"}
 
     def get_task(self, repeat_delay: int = 2) -> RickChurchTask:
-        url = self.resolve_church_endpoint("get_task")
+        url = self.resolve_church_endpoint("task")
         while True:
             response = self.make_request("GET", url, headers=self.church_headers).json()
 
-            if response["task"] is None:
+            if response.get("detail", None) == "No aviable tasks.":
                 logger.info(f"Church doesn't currently have any aviable tasks, waiting {repeat_delay}s")
                 time.sleep(repeat_delay)
                 continue
-            return RickChurchTask(**response["task"])
 
-    def submit_task(self, church_task: RickChurchTask, endpoint: str = "submit_task") -> requests.Response:
-        url = self.resolve_church_endpoint(endpoint)
+            # Make response dict compliant with the task dataclass, we use `color`, not `rgb`
+            response["color"] = response["rgb"]
+            del response["rgb"]
+            return RickChurchTask(**response)
+
+    def submit_task(self, church_task: RickChurchTask) -> requests.Response:
+        url = self.resolve_church_endpoint("task")
         body = {
-            'project_title': church_task.project_title,
-            'start': church_task.start,
+            'project_name': church_task.project_name,
             'x': church_task.x,
             'y': church_task.y,
-            'color': church_task.color
+            'rgb': church_task.color
         }
         req = self.make_request("POST", url, data=body, headers=self.church_headers)
-        completed_tasks = self.get_personal_stats()["goodTasks"]
-        logger.info(f"Task submitted to the church (tasks complete={completed_tasks}")
+        logger.info("Task submitted to the church")
         return req
 
     def _handle_church_task_errors(self, exception: Exception) -> None:
@@ -73,24 +71,7 @@ class RickChurchClient(ChurchClient):
         Rick church can raise certain specific errors, handle
         them here or raise them back, if they shouldn't be handled.
         """
-        if isinstance(exception, RateLimitBreached):
-            try:
-                detail: str = get_response_result(exception, "detail", error_on_fail=True)  # type: ignore
-            except (UnicodeDecodeError, JSONDecodeError, KeyError):
-                # If we can't get the detail, this isn't the exception we're looking for
-                return super()._handle_church_task_errors(exception)
-
-            match = re.search(
-                r"You have not gotten a task yet or you took more than (\d+) seconds to submit your task",
-                detail
-            )
-            if not match:
-                # If the detail isn't matching, this isn't an exception from the rick church
-                return super()._handle_church_task_errors(exception)
-
-            # Log the exception and proceed cleanly
-            logger.warn(f"Church task failed, task disassigned, submitting took over {match.groups()[0]} seconds")
-        elif isinstance(exception, requests.HTTPError):
+        if isinstance(exception, requests.HTTPError):
             try:
                 detail: str = get_response_result(exception, "detail", error_on_fail=True)  # type: ignore - if it's not str, we handle it
             except (UnicodeDecodeError, JSONDecodeError, KeyError):
@@ -98,62 +79,25 @@ class RickChurchClient(ChurchClient):
                 return super()._handle_church_task_errors(exception)
 
             if exception.response.status_code == 409:
-                if detail != "This is not the task you were assigned":
-                    # If the detail isn't matching, this isn't an exception from the rick church
+                invalid_task_msg = "This task doesn't belong to you, it has likely been reassigned since you took too long to complete it."
+                validation_err_msg = "Validation error, you didn\'t actually complete this task"
+
+                if detail == invalid_task_msg:
+                    logger.warn("Church task doesn't belong to you, it has likely been reassigned since you took too long to complete it.")
+                elif detail == validation_err_msg:
+                    logger.warn("Church task verification failed, someone has overwritten the pixel before we could submit it.")
+                else:
                     return super()._handle_church_task_errors(exception)
-
-                # Log the exception and proceed cleanly
-                logger.warn("Church task failed, this task already got reassigned to somebody else.")
-            elif exception.response.status_code == 400:
-                msg = (
-                    "You did not complete this task properly, or it was fixed before the server could verify it. "
-                    "You have not been credited for this task."
-                )
-                if detail != msg:
-                    # If the detail isn't matching, this isn't an exception from the rick church
-                    return super()._handle_church_task_errors(exception)
-
-                # Log the exception and proceed cleanly
-                logger.warn("Church task failed, check failed, someone has overwritten the pixel before we could submit it.")
-        elif isinstance(exception, requests.exceptions.SSLError):
-            url = exception.request.url
-            if not url.startswith(self.base_church_url):
-                # This error doesn't come from church of rick URL
-                return super()._handle_church_task_errors(exception)
-
-            # Log the exception and proceed cleanly
-            logger.warn("Church task failed, SSL Error: Church of rick's SSL certificate wasn't valid. For some reason this sometimes occurs.")
         else:
             # If we didn't find a rich church specific exception,
             # call the super's implementation of this, there could
             # be some other common errors
             return super()._handle_church_task_errors(exception)
 
-    def get_personal_stats(self):
-        """Get personal stats."""
-        url = self.resolve_church_endpoint("user/stats")
-        # TODO: Check if this works with headers
-        return self.make_request("GET", url, params={"key": self.church_token}).json()
-
-    def get_church_stats(self):
-        """Get church stats."""
-        url = self.resolve_church_endpoint("overall_stats")
-        return self.make_request("GET", url).json()
-
-    def get_leaderboard(self) -> list:
-        """Get church leaderboard."""
-        url = self.resolve_church_endpoint("leaderboard")
-        return self.make_request("GET", url).json()["leaderboard"]
-
-    def get_uptime(self) -> float:
-        """Uptime of the church of rick."""
-        url = self.resolve_church_endpoint("leaderboard")
-        return float(self.make_request("GET", url).json()["uptime"])
-
     def get_projects(self) -> list:
         """Get project data from the church."""
-        url = self.resolve_church_endpoint("projects/stats")
-        return self.make_request("GET", url).json()
+        url = self.resolve_church_endpoint("projects")
+        return self.make_request("GET", url, headers=self.church_headers).json()
 
 
 class SQLiteChurchClient(ChurchClient):
@@ -169,8 +113,8 @@ class SQLiteChurchClient(ChurchClient):
         church_token = ""
         super().__init__(pixel_api_token, church_token, base_church_url, *args, **kwargs)
 
-    def get_task(self, endpoint: str = "tasks", repeat_delay: int = 2) -> SQLiteChurchTask:
-        url = self.resolve_church_endpoint(endpoint)
+    def get_task(self, repeat_delay: int = 2) -> SQLiteChurchTask:
+        url = self.resolve_church_endpoint("tasks")
         while True:
             response = self.make_request("GET", url).json()
 
@@ -184,8 +128,8 @@ class SQLiteChurchClient(ChurchClient):
             task = random.choice(response)
             return SQLiteChurchTask(**task)
 
-    def submit_task(self, church_task: SQLiteChurchTask, endpoint: str = "submit_task") -> requests.Response:
-        url = self.resolve_church_endpoint(endpoint)
+    def submit_task(self, church_task: SQLiteChurchTask) -> requests.Response:
+        url = self.resolve_church_endpoint("submit_task")
         body = {"task_id": church_task.id}
         req = self.make_request("POST", url, data=body)
         logger.info("Task submitted to the church")
