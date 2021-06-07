@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass
 from json.decoder import JSONDecodeError
 
-import requests
+import httpx
 
 from pydispix.church import ChurchClient, ChurchTask
 from pydispix.errors import RateLimitBreached, get_response_result
@@ -53,7 +53,7 @@ class RickChurchClient(ChurchClient):
                 continue
             return RickChurchTask(**task)
 
-    async def submit_task(self, church_task: RickChurchTask, endpoint: str = "submit_task") -> requests.Response:
+    async def submit_task(self, church_task: RickChurchTask, endpoint: str = "submit_task") -> httpx.Response:
         url = self.resolve_church_endpoint(endpoint)
         body = {
             'project_title': church_task.project_title,
@@ -90,7 +90,7 @@ class RickChurchClient(ChurchClient):
 
             # Log the exception and proceed cleanly
             logger.warning(f"Church task failed, task disassigned, submitting took over {match.groups()[0]} seconds")
-        elif isinstance(exception, requests.HTTPError):
+        elif isinstance(exception, httpx.HTTPStatusError):
             try:
                 detail: str = get_response_result(exception, "detail", error_on_fail=True)  # type: ignore - if it's not str, we handle it
             except (UnicodeDecodeError, JSONDecodeError, KeyError):
@@ -115,14 +115,6 @@ class RickChurchClient(ChurchClient):
 
                 # Log the exception and proceed cleanly
                 logger.warning("Church task failed, check failed, someone has overwritten the pixel before we could submit it.")
-        elif isinstance(exception, requests.exceptions.SSLError):
-            url = exception.request.url
-            if not url.startswith(self.base_church_url):
-                # This error doesn't come from church of rick URL
-                return super()._handle_church_task_errors(exception)
-
-            # Log the exception and proceed cleanly
-            logger.warning("Church task failed, SSL Error: Church of rick's SSL certificate wasn't valid. For some reason this sometimes occurs.")
         else:
             # If we didn't find a rich church specific exception,
             # call the super's implementation of this, there could
@@ -194,7 +186,7 @@ class SQLiteChurchClient(ChurchClient):
             task = random.choice(data)
             return SQLiteChurchTask(**task)
 
-    async def submit_task(self, church_task: SQLiteChurchTask, endpoint: str = "submit_task") -> requests.Response:
+    async def submit_task(self, church_task: SQLiteChurchTask, endpoint: str = "submit_task") -> httpx.Response:
         url = self.resolve_church_endpoint(endpoint)
         body = {"task_id": church_task.id}
         response = await self.make_request("POST", url, data=body)

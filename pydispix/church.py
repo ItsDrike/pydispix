@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Tuple, Union
 
-import requests
+import httpx
 
 from pydispix.client import Client
 from pydispix.color import Color, parse_color
@@ -53,7 +53,7 @@ class ChurchClient(Client):
         """
 
     @abstractmethod
-    async def submit_task(self, church_task: ChurchTask, endpoint: str = "submit_task") -> requests.Response:
+    async def submit_task(self, church_task: ChurchTask, endpoint: str = "submit_task") -> httpx.Response:
         """
         Submit a task to the church, this is an abstract method, you'll need
         to override this to get it to work with your church's specific API.
@@ -159,7 +159,7 @@ class ChurchClient(Client):
                 # otherwise it should be raised from it.
                 try:
                     self._handle_church_task_errors(exc)
-                except requests.HTTPError as e:
+                except httpx.HTTPStatusError as e:
                     # Handle 500/502s here, because they require a sleep
                     # and they normally shouldn't occur, this is a special
                     # case for when the church is down, which, for some reason

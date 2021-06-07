@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Callable, Optional
 
-import requests
+import httpx
 
 from pydispix.canvas import Canvas, Dimensions, Pixel
 from pydispix.color import ResolvableColor, parse_color
@@ -30,14 +30,15 @@ class Client:
         self.base_url = base_url
         self.headers = {"Authorization": "Bearer " + token}
         self.rate_limiter = RateLimiter()
+        self.httpx_client = httpx.AsyncClient()
 
-    def make_raw_request(
+    async def make_raw_request(
         self, method: str, url: str, *,
         data: Optional[dict] = None,
         params: Optional[dict] = None,
         headers: Optional[dict] = None,
         update_rate_limits: bool = True,
-    ) -> requests.Response:
+    ) -> httpx.Response:
         """
         This method is here purely to make an HTTP request and update the rate limiter.
         Even though this will update the rate limtis, it will not wait for them.
@@ -50,7 +51,7 @@ class Client:
         # Set the user-agent, if not set to something else
         headers.setdefault("User-Agent", "ItsDrike pydispix")
 
-        response = requests.request(
+        response = await self.httpx_client.request(
             method, url,
             json=data,
             params=params,
@@ -76,7 +77,7 @@ class Client:
                 raise exc
 
         if response.status_code != 200:
-            raise requests.HTTPError(f"Received code {response.status_code}", response=response)
+            response.raise_for_status()
 
         return response
 
@@ -90,7 +91,7 @@ class Client:
         head_ratelimit_update: bool = False,
         repeat_on_ratelimit: bool = False,
         show_progress: bool = False,
-    ) -> requests.Response:
+    ) -> httpx.Response:
         """
         This method handles making a request on a rate-limited endpoint.
 
@@ -126,11 +127,11 @@ class Client:
 
         if not ratelimit_after:
             if head_ratelimit_update:
-                self.make_raw_request("HEAD", url, headers=headers, update_rate_limits=True)
+                await self.make_raw_request("HEAD", url, headers=headers, update_rate_limits=True)
             await self.rate_limiter.wait(url, show_progress=show_progress)
 
         try:
-            response = self.make_raw_request(
+            response = await self.make_raw_request(
                 method, url,
                 data=data,
                 params=params,

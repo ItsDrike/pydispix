@@ -3,7 +3,7 @@ import logging
 import sys
 from typing import Union
 
-from requests.models import CaseInsensitiveDict
+from httpx import Headers
 
 logger = logging.getLogger('pydispix')
 
@@ -20,7 +20,7 @@ class RateLimitedEndpoint:
         self.default_delay = default_delay  # If no other limit is found, how long should we wait
         self.anti_spam_delay = 0            # This is hit when multiple tokens are used
 
-    def update_from_headers(self, headers: CaseInsensitiveDict):
+    def update_from_headers(self, headers: Headers):
         # Static values for given endpoint
         if "requests-limit" in headers:
             self.requests_limit = int(headers["requests-limit"])
@@ -86,7 +86,7 @@ class RateLimiter:
     def __init__(self):
         self.rate_limits = {}
 
-    def update_from_headers(self, endpoint: str, headers: CaseInsensitiveDict):
+    def update_from_headers(self, endpoint: str, headers: Headers):
         self.rate_limits.setdefault(endpoint, RateLimitedEndpoint(endpoint))
         limiter = self.rate_limits[endpoint]
         limiter.update_from_headers(headers)

@@ -2,7 +2,7 @@ import re
 from json.decoder import JSONDecodeError
 from typing import Any, Optional, Union
 
-import requests
+import httpx
 
 from pydispix.ratelimits import RateLimitedEndpoint
 
@@ -13,11 +13,11 @@ class PyDisPixError(Exception):
 
 class RateLimitBreached(PyDisPixError):
     """Request failed due to rate limit breach."""
-    def __init__(self, *args, response: requests.Response, **kwargs):
+    def __init__(self, *args, response: httpx.Response, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Get time limits from headers with RateLimitedEndpoint
-        temp_rate_limit = RateLimitedEndpoint(response.url)
+        temp_rate_limit = RateLimitedEndpoint(response.url)  # type: ignore - url will be str
         temp_rate_limit.update_from_headers(response.headers)
 
         self.requests_limit = temp_rate_limit.requests_limit
@@ -38,7 +38,7 @@ class RateLimitBreached(PyDisPixError):
         return s
 
 
-class InvalidToken(PyDisPixError, requests.HTTPError):
+class InvalidToken(PyDisPixError, httpx.HTTPStatusError):
     """Invalid token used."""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -64,7 +64,7 @@ class OutOfBoundaries(PyDisPixError):
     """Status code 422 - tried to draw a pixel outside of the canvas"""
 
 
-def handle_invalid_body(response: requests.Response) -> Union[PyDisPixError, requests.HTTPError]:
+def handle_invalid_body(response: httpx.Response) -> Union[PyDisPixError, httpx.HTTPStatusError]:
     """
     Handle 442 (invalid body) error code. This code can mean many things,
     this function analyzes what exactly does the 442 refer to, and returns
@@ -83,11 +83,13 @@ def handle_invalid_body(response: requests.Response) -> Union[PyDisPixError, req
     if entry["loc"][1] in ("x", "y"):
         return OutOfBoundaries(entry["msg"])
 
-    raise requests.HTTPError("Unrecognized 422 exception, please report this issue in the pydispix repository", response=response)
+    raise httpx.HTTPStatusError(
+        "Unrecognized 422 exception, please report this issue in the pydispix repository",
+        response=response, request=response.request)
 
 
 def get_response_result(
-    exception: Union[requests.HTTPError, RateLimitBreached],
+    exception: Union[httpx.HTTPStatusError, RateLimitBreached],
     key: Optional[str] = None,
     error_on_fail: bool = False
 ) -> Union[str, dict, list]:
