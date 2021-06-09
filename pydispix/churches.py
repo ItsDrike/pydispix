@@ -3,6 +3,7 @@ import random
 import time
 from dataclasses import dataclass
 from json.decoder import JSONDecodeError
+from typing import List
 
 import requests
 
@@ -21,9 +22,12 @@ class RickChurchTask(ChurchTask):
 
 
 @dataclass
-class SQLiteChurchTask(ChurchTask):
-    id: int
-    issued_by: str
+class RickChurchProject:
+    name: str
+    x: int
+    y: int
+    priority: int
+    image: str  # base64 encoded png image
 
 
 class RickChurchClient(ChurchClient):
@@ -94,10 +98,11 @@ class RickChurchClient(ChurchClient):
             # be some other common errors
             return super()._handle_church_task_errors(exception)
 
-    def get_projects(self) -> list:
+    def get_projects(self) -> List[RickChurchProject]:
         """Get project data from the church."""
         url = self.resolve_church_endpoint("projects")
-        return self.make_request("GET", url, headers=self.church_headers).json()
+        response = self.make_request("GET", url, headers=self.church_headers)
+        return [RickChurchProject(**project) for project in response.json()]
 
     def check_mod(self) -> bool:
         """Check if this client is a moderator at church of rick."""
@@ -123,6 +128,32 @@ class RickChurchClient(ChurchClient):
         """Remove an existing moderator from the church."""
         url = self.resolve_church_endpoint("/mods/demote")
         return self.make_request("POST", url, data={"user_id": discord_user_id}, headers=self.church_headers)
+
+    def add_project(self, project: RickChurchProject) -> requests.Response:
+        """Add a new project to the church."""
+        url = self.resolve_church_endpoint("/mods/project")
+        return self.make_request(
+            "POST", url,
+            data={
+                "name": project.name,
+                "x": project.x,
+                "y": project.y,
+                "priority": project.priority,
+                "image": project.image
+            },
+            headers=self.church_headers
+        )
+
+    def remove_project(self, project_name: str) -> requests.Response:
+        """Remove an existing project from the church."""
+        url = self.resolve_church_endpoint("/mods/project")
+        return self.make_request("DELETE", url, data={"name": project_name}, headers=self.church_headers)
+
+
+@dataclass
+class SQLiteChurchTask(ChurchTask):
+    id: int
+    issued_by: str
 
 
 class SQLiteChurchClient(ChurchClient):
