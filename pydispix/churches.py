@@ -100,6 +100,7 @@ class RickChurchClient(ChurchClient):
         return self.make_request("GET", url, headers=self.church_headers).json()
 
     def check_mod(self) -> bool:
+        """Check if this client is a moderator at church of rick."""
         url = self.resolve_church_endpoint("/mods/check")
         try:
             response = self.make_request("GET", url, headers=self.church_headers)
@@ -108,14 +109,20 @@ class RickChurchClient(ChurchClient):
                 return False
             raise exc
 
-        try:
-            msg = response.json()["message"]
-        except KeyError:
-            raise KeyError(f"Couldn't get 'message' key from JSON response, response body: {response.content}")
-
+        msg = response.json()["message"]
         if msg == "You are a moderator!":
             return True
-        raise ValueError(f"Got unexpected message from response: {msg}; response body:{response.content}")
+        raise ValueError(f"Got unexpected message from response: {msg}; response body: {response.content}")
+
+    def promote(self, discord_user_id: int) -> requests.Response:
+        """Add a new moderator to the church."""
+        url = self.resolve_church_endpoint("/mods/promote")
+        return self.make_request("POST", url, data={"user_id": discord_user_id}, headers=self.church_headers)
+
+    def demote(self, discord_user_id: int) -> requests.Response:
+        """Remove an existing moderator from the church."""
+        url = self.resolve_church_endpoint("/mods/demote")
+        return self.make_request("POST", url, data={"user_id": discord_user_id}, headers=self.church_headers)
 
 
 class SQLiteChurchClient(ChurchClient):
