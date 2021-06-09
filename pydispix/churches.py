@@ -99,6 +99,24 @@ class RickChurchClient(ChurchClient):
         url = self.resolve_church_endpoint("projects")
         return self.make_request("GET", url, headers=self.church_headers).json()
 
+    def check_mod(self) -> bool:
+        url = self.resolve_church_endpoint("/mods/check")
+        try:
+            response = self.make_request("GET", url, headers=self.church_headers)
+        except requests.HTTPError as exc:
+            if exc.response.status_code == 403:
+                return False
+            raise exc
+
+        try:
+            msg = response.json()["message"]
+        except KeyError:
+            raise KeyError(f"Couldn't get 'message' key from JSON response, response body: {response.content}")
+
+        if msg == "You are a moderator!":
+            return True
+        raise ValueError(f"Got unexpected message from response: {msg}; response body:{response.content}")
+
 
 class SQLiteChurchClient(ChurchClient):
     """Church Client designed to work specifically with rick church"""
