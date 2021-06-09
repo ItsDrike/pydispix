@@ -46,12 +46,14 @@ class RickChurchClient(ChurchClient):
     def get_task(self, repeat_delay: int = 2) -> RickChurchTask:
         url = self.resolve_church_endpoint("task")
         while True:
-            response = self.make_request("GET", url, headers=self.church_headers).json()
-
-            if response.get("detail", None) == "No aviable tasks.":
-                logger.info(f"Church doesn't currently have any aviable tasks, waiting {repeat_delay}s")
-                time.sleep(repeat_delay)
-                continue
+            try:
+                response = self.make_request("GET", url, headers=self.church_headers).json()
+            except requests.HTTPError as exc:
+                if exc.response.json().get("detail", None) == "No aviable tasks.":
+                    logger.info(f"Church doesn't currently have any aviable tasks, waiting {repeat_delay}s")
+                    time.sleep(repeat_delay)
+                    continue
+                raise exc
 
             # Make response dict compliant with the task dataclass, we use `color`, not `rgb`
             response["color"] = response["rgb"]
